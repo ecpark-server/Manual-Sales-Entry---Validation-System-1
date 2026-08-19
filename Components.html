@@ -1,0 +1,325 @@
+<script>
+
+/**
+ * =====================================================
+ * MSE COMPONENTS
+ * =====================================================
+ */
+
+function renderHeader(user) {
+
+  const initials =
+    getInitials(user.fullName);
+
+  return `
+    <header class="mse-header">
+
+      <div class="mse-header-inner">
+
+        <div class="mse-brand">
+
+          <img
+            id="mse-project-logo"
+            class="mse-brand-logo"
+            alt="MSE Logo"
+          >
+
+          <div class="mse-brand-text">
+
+            <div class="mse-brand-title">
+              MSE VALIDATOR PORTAL 1
+            </div>
+
+            <div class="mse-brand-subtitle">
+              Manual Sales Entry - Validation System
+            </div>
+
+          </div>
+
+        </div>
+
+
+        <div class="mse-user-area">
+
+          <div class="mse-user-info">
+
+            <div class="mse-user-name">
+              ${escapeHtml(user.fullName)}
+            </div>
+
+            <div class="mse-user-role">
+              ${escapeHtml(user.roleName)}
+            </div>
+
+          </div>
+
+          <div class="mse-user-avatar">
+            ${escapeHtml(initials)}
+          </div>
+
+        </div>
+
+      </div>
+
+    </header>
+  `;
+}
+
+
+function renderSidebar(user, permissions) {
+
+  const items = [];
+
+  /**
+   * Dashboard
+   */
+  if (hasPermission("DASHBOARD_VIEW")) {
+
+    items.push({
+      id: "dashboard",
+      icon: "⌂",
+      text: "Dashboard"
+    });
+
+  }
+
+
+  /**
+   * Request
+   */
+  if (
+    hasPermission("REQUEST_VIEW") ||
+    hasPermission("REQUEST_CREATE")
+  ) {
+
+    items.push({
+      id: "request",
+      icon: "▣",
+      text: "Request Preparation"
+    });
+
+  }
+
+
+  /**
+   * Validation
+   */
+  if (
+    hasPermission("VALIDATION_VIEW") ||
+    hasPermission("VALIDATION_PROCESS")
+  ) {
+
+    items.push({
+      id: "validation",
+      icon: "✓",
+      text: "Validation"
+    });
+
+  }
+
+
+  /**
+   * System Extract
+   */
+  if (
+    hasPermission("EXTRACT_VIEW") ||
+    hasPermission("EXTRACT_UPLOAD")
+  ) {
+
+    items.push({
+      id: "extract",
+      icon: "▤",
+      text: "System Extract"
+    });
+
+  }
+
+
+  /**
+   * Reports
+   */
+  if (hasPermission("REPORT_VIEW")) {
+
+    items.push({
+      id: "reports",
+      icon: "▤",
+      text: "Reports"
+    });
+
+  }
+
+
+  /**
+   * Admin
+   */
+  const adminItems = [];
+
+  if (hasPermission("USER_VIEW")) {
+
+    adminItems.push({
+      id: "users",
+      icon: "●",
+      text: "User Management"
+    });
+
+  }
+
+  if (hasPermission("ROLE_MANAGE")) {
+
+    adminItems.push({
+      id: "roles",
+      icon: "◆",
+      text: "Roles & Access"
+    });
+
+  }
+
+  if (hasPermission("CONFIG_MANAGE")) {
+
+    adminItems.push({
+      id: "settings",
+      icon: "⚙",
+      text: "Settings"
+    });
+
+  }
+
+
+  let html = `
+    <aside
+      id="mse-sidebar"
+      class="mse-sidebar"
+    >
+  `;
+
+
+  if (items.length) {
+
+    html += `
+      <div class="mse-sidebar-section">
+
+        <div class="mse-sidebar-label">
+          Workspace
+        </div>
+    `;
+
+    items.forEach(item => {
+
+      html += `
+        <button
+          class="mse-nav-item"
+          data-page="${item.id}"
+          onclick="navigateTo('${item.id}')"
+        >
+
+          <span class="mse-nav-icon">
+            ${item.icon}
+          </span>
+
+          <span class="mse-nav-text">
+            ${escapeHtml(item.text)}
+          </span>
+
+        </button>
+      `;
+
+    });
+
+    html += `</div>`;
+
+  }
+
+
+  if (adminItems.length) {
+
+    html += `
+      <div class="mse-sidebar-section">
+
+        <div class="mse-sidebar-label">
+          Administration
+        </div>
+    `;
+
+    adminItems.forEach(item => {
+
+      html += `
+        <button
+          class="mse-nav-item"
+          data-page="${item.id}"
+          onclick="navigateTo('${item.id}')"
+        >
+
+          <span class="mse-nav-icon">
+            ${item.icon}
+          </span>
+
+          <span class="mse-nav-text">
+            ${escapeHtml(item.text)}
+          </span>
+
+        </button>
+      `;
+
+    });
+
+    html += `</div>`;
+
+  }
+
+
+  html += `
+    </aside>
+  `;
+
+  return html;
+}
+
+
+function renderFooter() {
+
+  return `
+    <footer class="mse-footer">
+
+      Manual Sales Entry - Validation System
+      &nbsp;•&nbsp;
+      © 2026
+
+    </footer>
+  `;
+}
+
+
+function getInitials(name) {
+
+  const parts =
+    String(name || "")
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+
+  if (!parts.length) {
+    return "U";
+  }
+
+  if (parts.length === 1) {
+    return parts[0].substring(0, 2).toUpperCase();
+  }
+
+  return (
+    parts[0].charAt(0) +
+    parts[parts.length - 1].charAt(0)
+  ).toUpperCase();
+}
+
+
+function escapeHtml(value) {
+
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+</script>
