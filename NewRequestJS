@@ -1,0 +1,2320 @@
+<script>
+
+/*
+============================================================
+MSE VALIDATOR PORTAL
+NEW REQUEST MODULE
+STEP 2
+
+Client-side request builder.
+
+STRUCTURE:
+
+Request
+    |
+    +-- Ticket
+    |     |
+    |     +-- Ticket ID
+    |     +-- DOR
+    |     +-- Store
+    |     +-- Issue
+    |     +-- Remarks
+    |     |
+    |     +-- Transactions
+    |
+    +-- Ticket
+          |
+          +-- Transactions
+
+NO BACKEND SAVE YET.
+============================================================
+*/
+
+
+const MSERequest = (() => {
+
+
+  /* ========================================================
+     APPLICATION STATE
+     ======================================================== */
+
+  const state = {
+
+    requestId: "",
+
+    requestedBy: "",
+
+    createdDate: "",
+
+    tickets: [],
+
+    initialized: false
+
+  };
+
+
+  /* ========================================================
+     INITIALIZE
+     ======================================================== */
+
+  function initialize() {
+
+    if (state.initialized) {
+      return;
+    }
+
+    state.initialized = true;
+
+    state.requestId =
+      generateRequestId();
+
+    state.createdDate =
+      formatDisplayDate(
+        new Date()
+      );
+
+
+    const requestIdElement =
+      document.getElementById(
+        "newRequestRequestId"
+      );
+
+    if (requestIdElement) {
+
+      requestIdElement.textContent =
+        state.requestId;
+
+    }
+
+
+    const createdDateElement =
+      document.getElementById(
+        "newRequestCreatedDate"
+      );
+
+    if (createdDateElement) {
+
+      createdDateElement.value =
+        state.createdDate;
+
+    }
+
+
+    updateSummary();
+
+  }
+
+
+  /* ========================================================
+     GENERATE REQUEST ID
+     ======================================================== */
+
+  function generateRequestId() {
+
+    const now =
+      new Date();
+
+    const year =
+      now.getFullYear();
+
+    const month =
+      String(
+        now.getMonth() + 1
+      ).padStart(2, "0");
+
+    const day =
+      String(
+        now.getDate()
+      ).padStart(2, "0");
+
+    const hours =
+      String(
+        now.getHours()
+      ).padStart(2, "0");
+
+    const minutes =
+      String(
+        now.getMinutes()
+      ).padStart(2, "0");
+
+    const seconds =
+      String(
+        now.getSeconds()
+      ).padStart(2, "0");
+
+
+    return (
+      "MSE-" +
+      year +
+      month +
+      day +
+      "-" +
+      hours +
+      minutes +
+      seconds
+    );
+
+  }
+
+
+  /* ========================================================
+     ADD TICKET
+     ======================================================== */
+
+  function addTicket() {
+
+    const ticketId =
+      createLocalId(
+        "ticket"
+      );
+
+
+    const ticket = {
+
+      internalId:
+        ticketId,
+
+      ticketId:
+        "",
+
+      dor:
+        "",
+
+      store:
+        "",
+
+      issue:
+        "",
+
+      remarks:
+        "",
+
+      transactions:
+        []
+
+    };
+
+
+    state.tickets.push(
+      ticket
+    );
+
+
+    renderTickets();
+
+    updateSummary();
+
+  }
+
+
+  /* ========================================================
+     REMOVE TICKET
+     ======================================================== */
+
+  function removeTicket(
+    internalId
+  ) {
+
+    const ticket =
+      state.tickets.find(
+        item =>
+          item.internalId ===
+          internalId
+      );
+
+
+    if (!ticket) {
+      return;
+    }
+
+
+    const confirmed =
+      window.confirm(
+        "Remove this ticket and all of its transactions?"
+      );
+
+
+    if (!confirmed) {
+      return;
+    }
+
+
+    state.tickets =
+      state.tickets.filter(
+        item =>
+          item.internalId !==
+          internalId
+      );
+
+
+    renderTickets();
+
+    updateSummary();
+
+  }
+
+
+  /* ========================================================
+     RENDER ALL TICKETS
+     ======================================================== */
+
+  function renderTickets() {
+
+    const container =
+      document.getElementById(
+        "ticketContainer"
+      );
+
+    const emptyState =
+      document.getElementById(
+        "ticketEmptyState"
+      );
+
+
+    if (!container) {
+      return;
+    }
+
+
+    container.innerHTML = "";
+
+
+    if (
+      state.tickets.length === 0
+    ) {
+
+      if (emptyState) {
+
+        emptyState.style.display =
+          "flex";
+
+      }
+
+      return;
+
+    }
+
+
+    if (emptyState) {
+
+      emptyState.style.display =
+        "none";
+
+    }
+
+
+    state.tickets.forEach(
+      (
+        ticket,
+        index
+      ) => {
+
+        container.insertAdjacentHTML(
+          "beforeend",
+          buildTicketHTML(
+            ticket,
+            index
+          )
+        );
+
+      }
+    );
+
+
+    bindTicketEvents();
+
+  }
+
+
+  /* ========================================================
+     BUILD TICKET HTML
+     ======================================================== */
+
+  function buildTicketHTML(
+    ticket,
+    index
+  ) {
+
+    return `
+
+      <div
+        class="mse-ticket-card"
+        data-ticket-id="${escapeAttribute(ticket.internalId)}"
+      >
+
+        <!-- ================================================
+             TICKET HEADER
+             ================================================ -->
+
+        <div class="mse-ticket-header">
+
+          <div>
+
+            <div class="mse-ticket-number">
+              TICKET ${index + 1}
+            </div>
+
+            <div class="mse-ticket-subtitle">
+              Ticket-specific information
+            </div>
+
+          </div>
+
+
+          <button
+            type="button"
+            class="request-danger-button"
+            data-action="remove-ticket"
+            data-id="${escapeAttribute(ticket.internalId)}"
+          >
+            Remove Ticket
+          </button>
+
+        </div>
+
+
+        <!-- ================================================
+             TICKET INFORMATION
+             ================================================ -->
+
+        <div class="request-form-grid ticket-form-grid">
+
+
+          <!-- Ticket ID -->
+
+          <div class="request-form-group">
+
+            <label>
+              Ticket ID
+              <span class="required-mark">*</span>
+            </label>
+
+            <input
+              type="text"
+              class="ticket-input"
+              data-field="ticketId"
+              data-id="${escapeAttribute(ticket.internalId)}"
+              value="${escapeAttribute(ticket.ticketId)}"
+              placeholder="Example: 2604040056"
+              inputmode="numeric"
+              maxlength="10"
+              autocomplete="off"
+            >
+
+            <div
+              class="field-helper"
+              data-dor-status="${escapeAttribute(ticket.internalId)}"
+            >
+              Enter the 10-digit Ticket ID.
+            </div>
+
+          </div>
+
+
+          <!-- DOR -->
+
+          <div class="request-form-group">
+
+            <label>
+              DOR
+              <span class="readonly-label">
+                AUTO
+              </span>
+            </label>
+
+            <input
+              type="text"
+              class="ticket-dor-input"
+              value="${escapeAttribute(ticket.dor)}"
+              readonly
+              placeholder="Automatically derived from Ticket ID"
+            >
+
+            <div class="field-helper">
+              Derived automatically from YYMMDD in Ticket ID.
+            </div>
+
+          </div>
+
+
+          <!-- Store -->
+
+          <div class="request-form-group">
+
+            <label>
+              Store
+              <span class="required-mark">*</span>
+            </label>
+
+            <input
+              type="text"
+              class="ticket-input"
+              data-field="store"
+              data-id="${escapeAttribute(ticket.internalId)}"
+              value="${escapeAttribute(ticket.store)}"
+              placeholder="Example: LC SMR"
+              autocomplete="off"
+            >
+
+          </div>
+
+
+        </div>
+
+
+        <!-- ================================================
+             ISSUE
+             ================================================ -->
+
+        <div class="request-form-group ticket-wide-field">
+
+          <label>
+            Issue / Concern
+            <span class="required-mark">*</span>
+          </label>
+
+          <input
+            type="text"
+            class="ticket-input"
+            data-field="issue"
+            data-id="${escapeAttribute(ticket.internalId)}"
+            value="${escapeAttribute(ticket.issue)}"
+            placeholder="Describe the issue or concern"
+            autocomplete="off"
+          >
+
+          <div class="field-helper">
+            Special characters will be normalized during processing.
+          </div>
+
+        </div>
+
+
+        <!-- ================================================
+             REMARKS
+             ================================================ -->
+
+        <div class="request-form-group ticket-wide-field">
+
+          <label>
+            Remarks
+          </label>
+
+          <textarea
+            class="ticket-input"
+            data-field="remarks"
+            data-id="${escapeAttribute(ticket.internalId)}"
+            rows="2"
+            placeholder="Enter remarks"
+          >${escapeHTML(ticket.remarks)}</textarea>
+
+          <div class="field-helper">
+            Remarks will be normalized before final processing.
+          </div>
+
+        </div>
+
+
+        <!-- ================================================
+             TRANSACTIONS
+             ================================================ -->
+
+        <div class="transaction-section">
+
+          <div class="transaction-section-header">
+
+            <div>
+
+              <div class="transaction-title">
+                Transactions
+              </div>
+
+              <div class="transaction-subtitle">
+                Add every transaction belonging to this ticket.
+              </div>
+
+            </div>
+
+
+            <button
+              type="button"
+              class="request-secondary-button request-small-button"
+              data-action="add-transaction"
+              data-id="${escapeAttribute(ticket.internalId)}"
+            >
+              ＋ Add Transaction
+            </button>
+
+          </div>
+
+
+          <div
+            class="transaction-table-wrapper"
+          >
+
+            ${buildTransactionTable(ticket)}
+
+          </div>
+
+        </div>
+
+      </div>
+
+    `;
+
+  }
+
+
+  /* ========================================================
+     BUILD TRANSACTION TABLE
+     ======================================================== */
+
+  function buildTransactionTable(
+    ticket
+  ) {
+
+    if (
+      ticket.transactions.length === 0
+    ) {
+
+      return `
+
+        <div class="transaction-empty-state">
+
+          <div class="transaction-empty-icon">
+            ＋
+          </div>
+
+          <div>
+
+            <strong>
+              No transactions added
+            </strong>
+
+            <p>
+              Add the transactions associated with this ticket.
+            </p>
+
+          </div>
+
+        </div>
+
+      `;
+
+    }
+
+
+    let rows = "";
+
+
+    ticket.transactions.forEach(
+      (
+        transaction,
+        index
+      ) => {
+
+        rows += `
+
+          <tr>
+
+            <td>
+              ${index + 1}
+            </td>
+
+
+            <td>
+
+              <input
+                type="text"
+                class="transaction-input"
+                data-transaction-field="cardNumber"
+                data-ticket-id="${escapeAttribute(ticket.internalId)}"
+                data-transaction-id="${escapeAttribute(transaction.internalId)}"
+                value="${escapeAttribute(transaction.cardNumber)}"
+                placeholder="Card Number"
+                inputmode="numeric"
+                autocomplete="off"
+              >
+
+            </td>
+
+
+            <td>
+
+              <input
+                type="text"
+                class="transaction-input transaction-readonly"
+                value="${escapeAttribute(ticket.dor)}"
+                readonly
+                title="Derived from Ticket ID"
+              >
+
+            </td>
+
+
+            <td>
+
+              <input
+                type="text"
+                class="transaction-input"
+                data-transaction-field="storeCode"
+                data-ticket-id="${escapeAttribute(ticket.internalId)}"
+                data-transaction-id="${escapeAttribute(transaction.internalId)}"
+                value="${escapeAttribute(transaction.storeCode)}"
+                placeholder="Store Code"
+                inputmode="numeric"
+              >
+
+            </td>
+
+
+            <td>
+
+              <input
+                type="text"
+                class="transaction-input"
+                data-transaction-field="registerNo"
+                data-ticket-id="${escapeAttribute(ticket.internalId)}"
+                data-transaction-id="${escapeAttribute(transaction.internalId)}"
+                value="${escapeAttribute(transaction.registerNo)}"
+                placeholder="Reg."
+                inputmode="numeric"
+              >
+
+            </td>
+
+
+            <td>
+
+              <input
+                type="text"
+                class="transaction-input"
+                data-transaction-field="transactionNo"
+                data-ticket-id="${escapeAttribute(ticket.internalId)}"
+                data-transaction-id="${escapeAttribute(transaction.internalId)}"
+                value="${escapeAttribute(transaction.transactionNo)}"
+                placeholder="Trans."
+                inputmode="numeric"
+              >
+
+            </td>
+
+
+            <td>
+
+              <input
+                type="text"
+                class="transaction-input amount-input"
+                data-transaction-field="amount"
+                data-ticket-id="${escapeAttribute(ticket.internalId)}"
+                data-transaction-id="${escapeAttribute(transaction.internalId)}"
+                value="${escapeAttribute(transaction.amount)}"
+                placeholder="0.00"
+                inputmode="decimal"
+              >
+
+            </td>
+
+
+            <td>
+
+              <input
+                type="text"
+                class="transaction-input"
+                data-transaction-field="configNo"
+                data-ticket-id="${escapeAttribute(ticket.internalId)}"
+                data-transaction-id="${escapeAttribute(transaction.internalId)}"
+                value="${escapeAttribute(transaction.configNo)}"
+                placeholder="Config No."
+                autocomplete="off"
+              >
+
+            </td>
+
+
+            <td>
+
+              <button
+                type="button"
+                class="transaction-remove-button"
+                data-action="remove-transaction"
+                data-ticket-id="${escapeAttribute(ticket.internalId)}"
+                data-transaction-id="${escapeAttribute(transaction.internalId)}"
+                title="Remove transaction"
+              >
+                ×
+              </button>
+
+            </td>
+
+          </tr>
+
+        `;
+
+      }
+    );
+
+
+    return `
+
+      <table class="transaction-table">
+
+        <thead>
+
+          <tr>
+
+            <th>#</th>
+
+            <th>Card Number</th>
+
+            <th>DOT</th>
+
+            <th>Store Code</th>
+
+            <th>Reg. No.</th>
+
+            <th>Trans. No.</th>
+
+            <th>Amount</th>
+
+            <th>Config No.</th>
+
+            <th></th>
+
+          </tr>
+
+        </thead>
+
+        <tbody>
+
+          ${rows}
+
+        </tbody>
+
+      </table>
+
+    `;
+
+  }
+
+
+  /* ========================================================
+     ADD TRANSACTION
+     ======================================================== */
+
+  function addTransaction(
+    ticketId
+  ) {
+
+    const ticket =
+      findTicket(
+        ticketId
+      );
+
+
+    if (!ticket) {
+      return;
+    }
+
+
+    const transaction = {
+
+      internalId:
+        createLocalId(
+          "transaction"
+        ),
+
+      cardNumber:
+        "",
+
+      dot:
+        ticket.dor || "",
+
+      storeCode:
+        "",
+
+      registerNo:
+        "",
+
+      transactionNo:
+        "",
+
+      amount:
+        "",
+
+      configNo:
+        ""
+
+    };
+
+
+    ticket.transactions.push(
+      transaction
+    );
+
+
+    renderTickets();
+
+    updateSummary();
+
+  }
+
+
+  /* ========================================================
+     REMOVE TRANSACTION
+     ======================================================== */
+
+  function removeTransaction(
+    ticketId,
+    transactionId
+  ) {
+
+    const ticket =
+      findTicket(
+        ticketId
+      );
+
+
+    if (!ticket) {
+      return;
+    }
+
+
+    ticket.transactions =
+      ticket.transactions.filter(
+        transaction =>
+          transaction.internalId !==
+          transactionId
+      );
+
+
+    renderTickets();
+
+    updateSummary();
+
+  }
+
+
+  /* ========================================================
+     FIND TICKET
+     ======================================================== */
+
+  function findTicket(
+    internalId
+  ) {
+
+    return state.tickets.find(
+      ticket =>
+        ticket.internalId ===
+        internalId
+    );
+
+  }
+
+
+  /* ========================================================
+     FIND TRANSACTION
+     ======================================================== */
+
+  function findTransaction(
+    ticket,
+    internalId
+  ) {
+
+    if (!ticket) {
+      return null;
+    }
+
+
+    return ticket.transactions.find(
+      transaction =>
+        transaction.internalId ===
+        internalId
+    );
+
+  }
+
+
+  /* ========================================================
+     BIND EVENTS
+     ======================================================== */
+
+  function bindTicketEvents() {
+
+    document
+      .querySelectorAll(
+        "[data-action='remove-ticket']"
+      )
+      .forEach(
+        button => {
+
+          button.addEventListener(
+            "click",
+            function () {
+
+              removeTicket(
+                this.dataset.id
+              );
+
+            }
+          );
+
+        }
+      );
+
+
+    document
+      .querySelectorAll(
+        "[data-action='add-transaction']"
+      )
+      .forEach(
+        button => {
+
+          button.addEventListener(
+            "click",
+            function () {
+
+              addTransaction(
+                this.dataset.id
+              );
+
+            }
+          );
+
+        }
+      );
+
+
+    document
+      .querySelectorAll(
+        "[data-action='remove-transaction']"
+      )
+      .forEach(
+        button => {
+
+          button.addEventListener(
+            "click",
+            function () {
+
+              removeTransaction(
+                this.dataset.ticketId,
+                this.dataset.transactionId
+              );
+
+            }
+          );
+
+        }
+      );
+
+
+    document
+      .querySelectorAll(
+        ".ticket-input"
+      )
+      .forEach(
+        input => {
+
+          input.addEventListener(
+            "input",
+            handleTicketInput
+          );
+
+          input.addEventListener(
+            "blur",
+            handleTicketBlur
+          );
+
+        }
+      );
+
+
+    document
+      .querySelectorAll(
+        ".transaction-input"
+      )
+      .forEach(
+        input => {
+
+          input.addEventListener(
+            "input",
+            handleTransactionInput
+          );
+
+        }
+      );
+
+  }
+
+
+  /* ========================================================
+     HANDLE TICKET INPUT
+     ======================================================== */
+
+  function handleTicketInput(
+    event
+  ) {
+
+    const input =
+      event.target;
+
+    const ticketId =
+      input.dataset.id;
+
+    const field =
+      input.dataset.field;
+
+
+    const ticket =
+      findTicket(
+        ticketId
+      );
+
+
+    if (!ticket) {
+      return;
+    }
+
+
+    ticket[field] =
+      input.value;
+
+
+    /* ------------------------------------------------------
+       Ticket ID changes DOR automatically
+       ------------------------------------------------------ */
+
+    if (
+      field === "ticketId"
+    ) {
+
+      const dor =
+        deriveDOR(
+          input.value
+        );
+
+
+      ticket.dor =
+        dor;
+
+
+      ticket.transactions.forEach(
+        transaction => {
+
+          transaction.dot =
+            dor;
+
+        }
+      );
+
+
+      updateDORDisplay(
+        ticket
+      );
+
+    }
+
+
+    updateSummary();
+
+  }
+
+
+  /* ========================================================
+     HANDLE TICKET BLUR
+     ======================================================== */
+
+  function handleTicketBlur(
+    event
+  ) {
+
+    const input =
+      event.target;
+
+    const ticketId =
+      input.dataset.id;
+
+    const ticket =
+      findTicket(
+        ticketId
+      );
+
+
+    if (!ticket) {
+      return;
+    }
+
+
+    if (
+      input.dataset.field ===
+      "ticketId"
+    ) {
+
+      input.value =
+        cleanDigits(
+          input.value
+        );
+
+      ticket.ticketId =
+        input.value;
+
+      const dor =
+        deriveDOR(
+          input.value
+        );
+
+
+      ticket.dor =
+        dor;
+
+
+      ticket.transactions.forEach(
+        transaction => {
+
+          transaction.dot =
+            dor;
+
+        }
+      );
+
+
+      renderTickets();
+
+      updateSummary();
+
+    }
+
+  }
+
+
+  /* ========================================================
+     HANDLE TRANSACTION INPUT
+     ======================================================== */
+
+  function handleTransactionInput(
+    event
+  ) {
+
+    const input =
+      event.target;
+
+    const ticketId =
+      input.dataset.ticketId;
+
+    const transactionId =
+      input.dataset.transactionId;
+
+    const field =
+      input.dataset.transactionField;
+
+
+    const ticket =
+      findTicket(
+        ticketId
+      );
+
+
+    if (!ticket) {
+      return;
+    }
+
+
+    const transaction =
+      findTransaction(
+        ticket,
+        transactionId
+      );
+
+
+    if (!transaction) {
+      return;
+    }
+
+
+    transaction[field] =
+      input.value;
+
+  }
+
+
+  /* ========================================================
+     UPDATE DOR DISPLAY
+     ======================================================== */
+
+  function updateDORDisplay(
+    ticket
+  ) {
+
+    const card =
+      document.querySelector(
+        `[data-ticket-id="${cssEscape(ticket.internalId)}"]`
+      );
+
+
+    if (!card) {
+      return;
+    }
+
+
+    const dorInput =
+      card.querySelector(
+        ".ticket-dor-input"
+      );
+
+
+    if (dorInput) {
+
+      dorInput.value =
+        ticket.dor;
+
+    }
+
+
+    const status =
+      card.querySelector(
+        "[data-dor-status]"
+      );
+
+
+    if (!status) {
+      return;
+    }
+
+
+    if (!ticket.ticketId) {
+
+      status.textContent =
+        "Enter the 10-digit Ticket ID.";
+
+      status.className =
+        "field-helper";
+
+      return;
+
+    }
+
+
+    if (!ticket.dor) {
+
+      status.textContent =
+        "Invalid Ticket ID date.";
+
+      status.className =
+        "field-helper field-error";
+
+      return;
+
+    }
+
+
+    status.textContent =
+      "Valid Ticket ID — DOR automatically derived.";
+
+    status.className =
+      "field-helper field-success";
+
+  }
+
+
+  /* ========================================================
+     DERIVE DOR
+     ======================================================== */
+
+  function deriveDOR(
+    ticketId
+  ) {
+
+    const clean =
+      cleanDigits(
+        ticketId
+      );
+
+
+    if (
+      clean.length !== 10
+    ) {
+
+      return "";
+
+    }
+
+
+    const yy =
+      Number(
+        clean.substring(
+          0,
+          2
+        )
+      );
+
+    const mm =
+      Number(
+        clean.substring(
+          2,
+          4
+        )
+      );
+
+    const dd =
+      Number(
+        clean.substring(
+          4,
+          6
+        )
+      );
+
+
+    const year =
+      2000 + yy;
+
+
+    if (
+      mm < 1 ||
+      mm > 12
+    ) {
+
+      return "";
+
+    }
+
+
+    if (
+      dd < 1 ||
+      dd > 31
+    ) {
+
+      return "";
+
+    }
+
+
+    const date =
+      new Date(
+        year,
+        mm - 1,
+        dd
+      );
+
+
+    if (
+      date.getFullYear() !== year ||
+      date.getMonth() !== mm - 1 ||
+      date.getDate() !== dd
+    ) {
+
+      return "";
+
+    }
+
+
+    return (
+      String(
+        mm
+      ).padStart(2, "0") +
+      "/" +
+      String(
+        dd
+      ).padStart(2, "0") +
+      "/" +
+      String(
+        year
+      )
+    );
+
+  }
+
+
+  /* ========================================================
+     NORMALIZE CARD NUMBER
+     ======================================================== */
+
+  function normalizeCardNumber(
+    value
+  ) {
+
+    let cleanVal =
+      cleanDigits(
+        value
+      );
+
+
+    if (!cleanVal) {
+      return "";
+    }
+
+
+    const len =
+      cleanVal.length;
+
+
+    /*
+    ----------------------------------------------------------
+    BASELINE FORMULA LOGIC
+
+    >16
+       Keep first digit + last 15 digits
+
+    11-15
+       Insert zero after first digit
+
+    Otherwise
+       Maintain value
+
+    This is retained as the baseline for the portal.
+    ----------------------------------------------------------
+    */
+
+
+    if (
+      len > 16
+    ) {
+
+      cleanVal =
+        cleanVal.substring(
+          0,
+          1
+        ) +
+        cleanVal.substring(
+          len - 15
+        );
+
+    }
+    else if (
+      len >= 11 &&
+      len <= 15
+    ) {
+
+      cleanVal =
+        cleanVal.substring(
+          0,
+          1
+        ) +
+        "0" +
+        cleanVal.substring(
+          1
+        );
+
+    }
+
+
+    /*
+    ----------------------------------------------------------
+    BPC RULE
+
+    8000... → retain last 8 digits
+    ----------------------------------------------------------
+    */
+
+    if (
+      cleanVal.indexOf(
+        "8000"
+      ) === 0
+    ) {
+
+      if (
+        cleanVal.length >= 8
+      ) {
+
+        return cleanVal.substring(
+          cleanVal.length - 8
+        );
+
+      }
+
+    }
+
+
+    /*
+    ----------------------------------------------------------
+    RPC / BPC 7000
+
+    5000... → 16 digits
+    7000... → 16 digits
+    ----------------------------------------------------------
+    */
+
+    if (
+      (
+        cleanVal.indexOf(
+          "5000"
+        ) === 0 ||
+        cleanVal.indexOf(
+          "7000"
+        ) === 0
+      ) &&
+      cleanVal.length > 16
+    ) {
+
+      return (
+        cleanVal.substring(
+          0,
+          1
+        ) +
+        cleanVal.substring(
+          cleanVal.length - 15
+        )
+      );
+
+    }
+
+
+    return cleanVal;
+
+  }
+
+
+  /* ========================================================
+     NORMALIZE SENTENCE
+     ======================================================== */
+
+  function normalizeSentence(
+    value
+  ) {
+
+    if (!value) {
+      return "";
+    }
+
+
+    let clean =
+      String(value)
+        .replace(
+          /[^A-Za-z0-9\s]/g,
+          " "
+        )
+        .replace(
+          /\s+/g,
+          " "
+        )
+        .trim()
+        .toLowerCase();
+
+
+    return clean.replace(
+      /\b[a-z]/g,
+      letter =>
+        letter.toUpperCase()
+    );
+
+  }
+
+
+  /* ========================================================
+     PREPARE DATA
+     ======================================================== */
+
+  function prepareData() {
+
+    const requestedBy =
+      document.getElementById(
+        "newRequestRequestedBy"
+      );
+
+
+    state.requestedBy =
+      requestedBy
+        ? requestedBy.value.trim()
+        : "";
+
+
+    return {
+
+      requestId:
+        state.requestId,
+
+      requestedBy:
+        state.requestedBy,
+
+      createdDate:
+        state.createdDate,
+
+      tickets:
+        state.tickets.map(
+          ticket => ({
+
+            ticketId:
+              cleanDigits(
+                ticket.ticketId
+              ),
+
+            dor:
+              ticket.dor,
+
+            store:
+              normalizeSentence(
+                ticket.store
+              ),
+
+            issue:
+              normalizeSentence(
+                ticket.issue
+              ),
+
+            remarks:
+              normalizeSentence(
+                ticket.remarks
+              ),
+
+            transactions:
+              ticket.transactions.map(
+                transaction => ({
+
+                  cardNumber:
+                    normalizeCardNumber(
+                      transaction.cardNumber
+                    ),
+
+                  dot:
+                    ticket.dor,
+
+                  storeCode:
+                    cleanDigits(
+                      transaction.storeCode
+                    ),
+
+                  registerNo:
+                    cleanDigits(
+                      transaction.registerNo
+                    ),
+
+                  transactionNo:
+                    cleanDigits(
+                      transaction.transactionNo
+                    ),
+
+                  amount:
+                    normalizeAmount(
+                      transaction.amount
+                    ),
+
+                  configNo:
+                    normalizeCardNumber(
+                      transaction.configNo
+                    )
+
+                })
+              )
+
+          })
+        )
+
+    };
+
+  }
+
+
+  /* ========================================================
+     VALIDATE REQUEST
+     ======================================================== */
+
+  function validateRequest() {
+
+    const errors = [];
+
+
+    if (
+      !state.requestedBy
+    ) {
+
+      errors.push(
+        "Requested By is required."
+      );
+
+    }
+
+
+    if (
+      state.tickets.length === 0
+    ) {
+
+      errors.push(
+        "At least one ticket is required."
+      );
+
+    }
+
+
+    state.tickets.forEach(
+      (
+        ticket,
+        index
+      ) => {
+
+        const ticketNumber =
+          index + 1;
+
+
+        if (
+          !ticket.ticketId
+        ) {
+
+          errors.push(
+            `Ticket ${ticketNumber}: Ticket ID is required.`
+          );
+
+        }
+        else if (
+          ticket.ticketId.length !== 10
+        ) {
+
+          errors.push(
+            `Ticket ${ticketNumber}: Ticket ID must contain exactly 10 digits.`
+          );
+
+        }
+        else if (
+          !ticket.dor
+        ) {
+
+          errors.push(
+            `Ticket ${ticketNumber}: Ticket ID contains an invalid date.`
+          );
+
+        }
+
+
+        if (
+          !ticket.store
+        ) {
+
+          errors.push(
+            `Ticket ${ticketNumber}: Store is required.`
+          );
+
+        }
+
+
+        if (
+          !ticket.issue
+        ) {
+
+          errors.push(
+            `Ticket ${ticketNumber}: Issue / Concern is required.`
+          );
+
+        }
+
+
+        if (
+          ticket.transactions.length === 0
+        ) {
+
+          errors.push(
+            `Ticket ${ticketNumber}: At least one transaction is required.`
+          );
+
+        }
+
+
+        ticket.transactions.forEach(
+          (
+            transaction,
+            transactionIndex
+          ) => {
+
+            const number =
+              transactionIndex + 1;
+
+
+            if (
+              !transaction.cardNumber
+            ) {
+
+              errors.push(
+                `Ticket ${ticketNumber}, Transaction ${number}: Card Number is required.`
+              );
+
+            }
+
+
+            if (
+              !transaction.storeCode
+            ) {
+
+              errors.push(
+                `Ticket ${ticketNumber}, Transaction ${number}: Store Code is required.`
+              );
+
+            }
+
+
+            if (
+              !transaction.registerNo
+            ) {
+
+              errors.push(
+                `Ticket ${ticketNumber}, Transaction ${number}: Register No. is required.`
+              );
+
+            }
+
+
+            if (
+              !transaction.transactionNo
+            ) {
+
+              errors.push(
+                `Ticket ${ticketNumber}, Transaction ${number}: Transaction No. is required.`
+              );
+
+            }
+
+
+            if (
+              transaction.amount === "" ||
+              transaction.amount === null
+            ) {
+
+              errors.push(
+                `Ticket ${ticketNumber}, Transaction ${number}: Amount is required.`
+              );
+
+            }
+
+          }
+        );
+
+      }
+    );
+
+
+    return errors;
+
+  }
+
+
+  /* ========================================================
+     SAVE DRAFT
+     ======================================================== */
+
+  function saveDraft() {
+
+    prepareData();
+
+    alert(
+      "Draft functionality is prepared but backend saving will be connected in the next step."
+    );
+
+  }
+
+
+  /* ========================================================
+     SUBMIT REQUEST
+     ======================================================== */
+
+  function submitRequest() {
+
+    const data =
+      prepareData();
+
+
+    const errors =
+      validateRequest();
+
+
+    if (
+      errors.length
+    ) {
+
+      alert(
+        "Please correct the following:\n\n" +
+        errors.join(
+          "\n"
+        )
+      );
+
+      return;
+
+    }
+
+
+    console.log(
+      "MSE REQUEST READY:",
+      data
+    );
+
+
+    alert(
+      "Request structure validated successfully.\n\n" +
+      "Backend submission will be connected in the next step."
+    );
+
+  }
+
+
+  /* ========================================================
+     CANCEL REQUEST
+     ======================================================== */
+
+  function cancelRequest() {
+
+    const confirmed =
+      window.confirm(
+        "Cancel this request? Any unsaved information will be lost."
+      );
+
+
+    if (!confirmed) {
+      return;
+    }
+
+
+    state.requestId =
+      generateRequestId();
+
+    state.requestedBy =
+      "";
+
+    state.createdDate =
+      formatDisplayDate(
+        new Date()
+      );
+
+    state.tickets =
+      [];
+
+
+    const requester =
+      document.getElementById(
+        "newRequestRequestedBy"
+      );
+
+    if (requester) {
+      requester.value = "";
+    }
+
+
+    const requestId =
+      document.getElementById(
+        "newRequestRequestId"
+      );
+
+    if (requestId) {
+
+      requestId.textContent =
+        state.requestId;
+
+    }
+
+
+    renderTickets();
+
+    updateSummary();
+
+  }
+
+
+  /* ========================================================
+     UPDATE SUMMARY
+     ======================================================== */
+
+  function updateSummary() {
+
+    const ticketCount =
+      state.tickets.length;
+
+
+    const transactionCount =
+      state.tickets.reduce(
+        (
+          total,
+          ticket
+        ) =>
+          total +
+          ticket.transactions.length,
+        0
+      );
+
+
+    const stores =
+      [
+        ...new Set(
+          state.tickets
+            .map(
+              ticket =>
+                ticket.store.trim()
+            )
+            .filter(Boolean)
+        )
+      ];
+
+
+    setText(
+      "requestTicketCount",
+      ticketCount
+    );
+
+
+    setText(
+      "requestTransactionCount",
+      transactionCount
+    );
+
+
+    setText(
+      "requestStoreCount",
+      stores.length
+    );
+
+  }
+
+
+  /* ========================================================
+     UTILITY FUNCTIONS
+     ======================================================== */
+
+  function cleanDigits(
+    value
+  ) {
+
+    return String(
+      value || ""
+    ).replace(
+      /\D/g,
+      ""
+    );
+
+  }
+
+
+  function normalizeAmount(
+    value
+  ) {
+
+    if (
+      value === "" ||
+      value === null ||
+      value === undefined
+    ) {
+
+      return "";
+
+    }
+
+
+    const number =
+      Number(
+        String(value)
+          .replace(
+            /,/g,
+            ""
+          )
+      );
+
+
+    if (
+      Number.isNaN(
+        number
+      )
+    ) {
+
+      return "";
+
+    }
+
+
+    return Math.round(
+      number * 100
+    ) / 100;
+
+  }
+
+
+  function formatDisplayDate(
+    date
+  ) {
+
+    const month =
+      String(
+        date.getMonth() + 1
+      ).padStart(
+        2,
+        "0"
+      );
+
+
+    const day =
+      String(
+        date.getDate()
+      ).padStart(
+        2,
+        "0"
+      );
+
+
+    const year =
+      date.getFullYear();
+
+
+    return (
+      month +
+      "/" +
+      day +
+      "/" +
+      year
+    );
+
+  }
+
+
+  function createLocalId(
+    prefix
+  ) {
+
+    return (
+      prefix +
+      "_" +
+      Date.now() +
+      "_" +
+      Math.random()
+        .toString(
+          36
+        )
+        .substring(
+          2,
+          8
+        )
+    );
+
+  }
+
+
+  function setText(
+    id,
+    value
+  ) {
+
+    const element =
+      document.getElementById(
+        id
+      );
+
+
+    if (element) {
+
+      element.textContent =
+        value;
+
+    }
+
+  }
+
+
+  function escapeHTML(
+    value
+  ) {
+
+    return String(
+      value || ""
+    )
+      .replace(
+        /&/g,
+        "&amp;"
+      )
+      .replace(
+        /</g,
+        "&lt;"
+      )
+      .replace(
+        />/g,
+        "&gt;"
+      )
+      .replace(
+        /"/g,
+        "&quot;"
+      )
+      .replace(
+        /'/g,
+        "&#039;"
+      );
+
+  }
+
+
+  function escapeAttribute(
+    value
+  ) {
+
+    return escapeHTML(
+      value
+    );
+
+  }
+
+
+  function cssEscape(
+    value
+  ) {
+
+    if (
+      window.CSS &&
+      typeof window.CSS.escape ===
+        "function"
+    ) {
+
+      return window.CSS.escape(
+        value
+      );
+
+    }
+
+
+    return String(
+      value
+    ).replace(
+      /[^a-zA-Z0-9_-]/g,
+      "\\$&"
+    );
+
+  }
+
+
+  /* ========================================================
+     PUBLIC API
+     ======================================================== */
+
+  return {
+
+    initialize,
+
+    addTicket,
+
+    removeTicket,
+
+    addTransaction,
+
+    removeTransaction,
+
+    saveDraft,
+
+    submitRequest,
+
+    cancelRequest,
+
+    prepareData,
+
+    deriveDOR,
+
+    normalizeCardNumber,
+
+    normalizeSentence
+
+  };
+
+})();
+
+
+/* ============================================================
+   INITIALIZE WHEN PAGE IS AVAILABLE
+   ============================================================ */
+
+document.addEventListener(
+  "DOMContentLoaded",
+  function () {
+
+    MSERequest.initialize();
+
+  }
+);
+
+</script>
