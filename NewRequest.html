@@ -1,0 +1,288 @@
+<!--
+============================================================
+MSE VALIDATOR PORTAL
+NEW REQUEST MODULE
+STEP 2
+
+Request
+    └── Tickets
+          └── Transactions
+
+This module does NOT save data yet.
+============================================================
+-->
+
+<section id="newRequestModule" class="mse-request-module">
+
+  <!-- ======================================================
+       PAGE HEADER
+       ====================================================== -->
+
+  <div class="request-page-header">
+
+    <div>
+
+      <div class="request-page-kicker">
+        MANUAL SALES ENTRY
+      </div>
+
+      <h1>
+        New Validation Request
+      </h1>
+
+      <p>
+        Prepare a Manual Sales Entry validation request
+        containing one or more tickets and transactions.
+      </p>
+
+    </div>
+
+    <div class="request-status-badge">
+
+      <span class="request-status-dot"></span>
+
+      Draft
+
+    </div>
+
+  </div>
+
+
+  <!-- ======================================================
+       REQUEST INFORMATION
+       ====================================================== -->
+
+  <div class="request-section-card">
+
+    <div class="request-section-header">
+
+      <div>
+
+        <div class="request-section-title">
+          Request Information
+        </div>
+
+        <div class="request-section-subtitle">
+          General information for this validation request.
+        </div>
+
+      </div>
+
+      <div class="request-id-display">
+
+        <span>
+          REQUEST ID
+        </span>
+
+        <strong id="newRequestRequestId">
+          Not generated
+        </strong>
+
+      </div>
+
+    </div>
+
+
+    <div class="request-form-grid">
+
+      <div class="request-form-group">
+
+        <label for="newRequestRequestedBy">
+          Requested By
+        </label>
+
+        <input
+          type="text"
+          id="newRequestRequestedBy"
+          placeholder="Enter requester name"
+          autocomplete="off"
+        >
+
+      </div>
+
+
+      <div class="request-form-group">
+
+        <label for="newRequestCreatedDate">
+          Date Created
+        </label>
+
+        <input
+          type="text"
+          id="newRequestCreatedDate"
+          readonly
+        >
+
+      </div>
+
+    </div>
+
+  </div>
+
+
+  <!-- ======================================================
+       TICKETS
+       ====================================================== -->
+
+  <div class="request-section-card">
+
+    <div class="request-section-header">
+
+      <div>
+
+        <div class="request-section-title">
+          Tickets
+        </div>
+
+        <div class="request-section-subtitle">
+          A request may contain multiple tickets.
+          Each ticket may belong to a different store.
+        </div>
+
+      </div>
+
+      <button
+        type="button"
+        class="request-primary-button"
+        onclick="MSERequest.addTicket()"
+      >
+
+        <span>＋</span>
+
+        Add Ticket
+
+      </button>
+
+    </div>
+
+
+    <div id="ticketContainer">
+
+      <!-- Ticket cards are dynamically inserted here -->
+
+    </div>
+
+
+    <!-- ====================================================
+         EMPTY STATE
+         ==================================================== -->
+
+    <div
+      id="ticketEmptyState"
+      class="ticket-empty-state"
+    >
+
+      <div class="ticket-empty-icon">
+        ＋
+      </div>
+
+      <h3>
+        No tickets added
+      </h3>
+
+      <p>
+        Click <strong>Add Ticket</strong> to begin preparing
+        this Manual Sales Entry request.
+      </p>
+
+      <button
+        type="button"
+        class="request-primary-button"
+        onclick="MSERequest.addTicket()"
+      >
+
+        ＋ Add First Ticket
+
+      </button>
+
+    </div>
+
+  </div>
+
+
+  <!-- ======================================================
+       REQUEST SUMMARY
+       ====================================================== -->
+
+  <div class="request-summary-card">
+
+    <div class="request-summary-item">
+
+      <span>
+        TICKETS
+      </span>
+
+      <strong id="requestTicketCount">
+        0
+      </strong>
+
+    </div>
+
+
+    <div class="request-summary-item">
+
+      <span>
+        TRANSACTIONS
+      </span>
+
+      <strong id="requestTransactionCount">
+        0
+      </strong>
+
+    </div>
+
+
+    <div class="request-summary-item">
+
+      <span>
+        STORES
+      </span>
+
+      <strong id="requestStoreCount">
+        0
+      </strong>
+
+    </div>
+
+  </div>
+
+
+  <!-- ======================================================
+       ACTION BAR
+       ====================================================== -->
+
+  <div class="request-action-bar">
+
+    <button
+      type="button"
+      class="request-secondary-button"
+      onclick="MSERequest.cancelRequest()"
+    >
+      Cancel
+    </button>
+
+
+    <div class="request-action-right">
+
+      <button
+        type="button"
+        class="request-secondary-button"
+        onclick="MSERequest.saveDraft()"
+      >
+        Save Draft
+      </button>
+
+
+      <button
+        type="button"
+        class="request-primary-button"
+        onclick="MSERequest.submitRequest()"
+      >
+        Submit Request
+      </button>
+
+    </div>
+
+  </div>
+
+</section>
