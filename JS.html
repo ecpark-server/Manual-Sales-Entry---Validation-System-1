@@ -1,0 +1,4059 @@
+<script>
+
+/* ============================================================
+   MSE VALIDATOR PORTAL
+   CLIENT APPLICATION
+   ============================================================ */
+
+
+/* ============================================================
+   APPLICATION STATE
+   ============================================================ */
+
+const AppState = {
+
+  currentPage:
+    "dashboard",
+
+  sidebarOpen:
+    false,
+
+  config:
+    null,
+
+  transactions:
+    [],
+
+  transactionSequence:
+    0,
+
+  requestDraft:
+    null
+
+};
+
+
+/* ============================================================
+   REQUEST STATE
+   ============================================================ */
+
+const RequestState = {
+
+  requestId:
+    "",
+
+  preparedBy:
+    "Normal User",
+
+  preparedDate:
+    "",
+
+  tickets:
+    [],
+
+  initialized:
+    false
+
+};
+
+
+/* ============================================================
+   INITIALIZE
+   ============================================================ */
+
+document.addEventListener(
+  "DOMContentLoaded",
+  function () {
+
+    initializePortal();
+
+  }
+);
+
+
+/* ============================================================
+   INITIALIZE PORTAL
+   ============================================================ */
+
+function initializePortal() {
+
+  google.script.run
+
+    .withSuccessHandler(
+      function (config) {
+
+        AppState.config =
+          config;
+
+        applyPortalConfig(
+          config
+        );
+
+        hideLoadingScreen();
+
+      }
+    )
+
+    .withFailureHandler(
+      function (error) {
+
+        console.error(
+          "Portal initialization failed:",
+          error
+        );
+
+        hideLoadingScreen();
+
+      }
+    )
+
+    .getPortalConfig();
+
+}
+
+
+/* ============================================================
+   APPLY CONFIGURATION
+   ============================================================ */
+
+function applyPortalConfig(
+  config
+) {
+
+  if (!config) {
+
+    return;
+
+  }
+
+
+  /* ----------------------------------------------------------
+     PROJECT LOGO
+     ---------------------------------------------------------- */
+
+  if (config.projectLogo) {
+
+    const sidebarLogo =
+      document.getElementById(
+        "sidebarProjectLogo"
+      );
+
+    const dashboardLogo =
+      document.getElementById(
+        "dashboardProjectLogo"
+      );
+
+
+    if (sidebarLogo) {
+
+      sidebarLogo.src =
+        config.projectLogo;
+
+    }
+
+
+    if (dashboardLogo) {
+
+      dashboardLogo.src =
+        config.projectLogo;
+
+    }
+
+  }
+
+
+  /* ----------------------------------------------------------
+     FOOTER LOGO
+     ---------------------------------------------------------- */
+
+  if (config.footerLogo) {
+
+    const footerLogo =
+      document.getElementById(
+        "footerCompanyLogo"
+      );
+
+
+    if (footerLogo) {
+
+      footerLogo.src =
+        config.footerLogo;
+
+    }
+
+  }
+
+
+  /* ----------------------------------------------------------
+     PORTAL NAME
+     ---------------------------------------------------------- */
+
+  const portalName =
+    document.getElementById(
+      "headerPortalName"
+    );
+
+
+  if (
+    portalName &&
+    config.portalName
+  ) {
+
+    portalName.textContent =
+      config.portalName.toUpperCase();
+
+  }
+
+
+  /* ----------------------------------------------------------
+     PROJECT TITLE
+     ---------------------------------------------------------- */
+
+  const projectTitle =
+    document.getElementById(
+      "headerProjectTitle"
+    );
+
+
+  if (
+    projectTitle &&
+    config.projectTitle
+  ) {
+
+    projectTitle.textContent =
+      config.projectTitle;
+
+  }
+
+
+  /* ----------------------------------------------------------
+     USER
+     ---------------------------------------------------------- */
+
+  if (config.user) {
+
+    const userName =
+      document.getElementById(
+        "headerUserName"
+      );
+
+    const userRole =
+      document.getElementById(
+        "headerUserRole"
+      );
+
+    const userInitials =
+      document.getElementById(
+        "headerUserInitials"
+      );
+
+
+    if (userName) {
+
+      userName.textContent =
+        config.user.name || "";
+
+    }
+
+
+    if (userRole) {
+
+      userRole.textContent =
+        formatRole(
+          config.user.role
+        );
+
+    }
+
+
+    if (userInitials) {
+
+      userInitials.textContent =
+        config.user.initials || "";
+
+    }
+
+  }
+
+}
+
+
+/* ============================================================
+   FORMAT ROLE
+   ============================================================ */
+
+function formatRole(
+  role
+) {
+
+  if (!role) {
+
+    return "";
+
+  }
+
+
+  return String(role)
+    .toLowerCase()
+    .replace(
+      /\b\w/g,
+      function (letter) {
+
+        return letter.toUpperCase();
+
+      }
+    );
+
+}
+
+
+/* ============================================================
+   NAVIGATION
+   ============================================================ */
+
+function navigateTo(
+  page
+) {
+
+  if (!page) {
+
+    return;
+
+  }
+
+
+  page =
+    String(page)
+      .trim()
+      .toLowerCase();
+
+
+  const supportedPages = [
+
+    "dashboard",
+    "request",
+    "locate",
+    "release"
+
+  ];
+
+
+  if (
+    !supportedPages.includes(
+      page
+    )
+  ) {
+
+    console.warn(
+      "Unknown navigation page:",
+      page
+    );
+
+    return;
+
+  }
+
+
+  AppState.currentPage =
+    page;
+
+
+  /* ----------------------------------------------------------
+     HIDE ALL PAGES
+     ---------------------------------------------------------- */
+
+  document
+    .querySelectorAll(
+      ".page"
+    )
+    .forEach(
+      function (element) {
+
+        element.classList.remove(
+          "active"
+        );
+
+      }
+    );
+
+
+  /* ----------------------------------------------------------
+     SHOW SELECTED PAGE
+     ---------------------------------------------------------- */
+
+  const selectedPage =
+    document.getElementById(
+      "page-" + page
+    );
+
+
+  if (selectedPage) {
+
+    selectedPage.classList.add(
+      "active"
+    );
+
+  }
+
+
+  /* ----------------------------------------------------------
+     UPDATE NAVIGATION
+     ---------------------------------------------------------- */
+
+  document
+    .querySelectorAll(
+      ".nav-item"
+    )
+    .forEach(
+      function (element) {
+
+        element.classList.remove(
+          "active"
+        );
+
+      }
+    );
+
+
+  const selectedNav =
+    document.querySelector(
+      `.nav-item[data-page="${page}"]`
+    );
+
+
+  if (selectedNav) {
+
+    selectedNav.classList.add(
+      "active"
+    );
+
+  }
+
+
+  /* ----------------------------------------------------------
+     MOBILE SIDEBAR
+     ---------------------------------------------------------- */
+
+  if (
+    window.innerWidth <= 1000
+  ) {
+
+    closeSidebar();
+
+  }
+
+
+  /* ----------------------------------------------------------
+     SCROLL TOP
+     ---------------------------------------------------------- */
+
+  window.scrollTo({
+
+    top:
+      0,
+
+    behavior:
+      "smooth"
+
+  });
+
+
+  /* ----------------------------------------------------------
+     PAGE INITIALIZATION
+     ---------------------------------------------------------- */
+
+  initializePage(
+    page
+  );
+
+}
+
+
+/* ============================================================
+   PAGE INITIALIZATION ROUTER
+   ============================================================ */
+
+function initializePage(
+  page
+) {
+
+  switch (page) {
+
+    case "dashboard":
+
+      initializeDashboardModule();
+
+      break;
+
+
+    case "request":
+
+      initializeRequestModule();
+
+      break;
+
+
+    case "locate":
+
+      initializeLocateModule();
+
+      break;
+
+
+    case "release":
+
+      initializeReleaseModule();
+
+      break;
+
+
+    default:
+
+      break;
+
+  }
+
+}
+
+
+/* ============================================================
+   DASHBOARD MODULE
+   ============================================================ */
+
+function initializeDashboardModule() {
+
+}
+
+
+/* ============================================================
+   LOCATE MODULE
+   ============================================================ */
+
+function initializeLocateModule() {
+
+  console.log(
+    "Locate page initialized."
+  );
+
+
+  if (
+    typeof initializeLocateCard ===
+    "function"
+  ) {
+
+    initializeLocateCard();
+
+  }
+
+}
+
+
+/* ============================================================
+   RELEASE MODULE
+   ============================================================ */
+
+function initializeReleaseModule() {
+
+  console.log(
+    "Release page initialized."
+  );
+
+
+  if (
+    typeof initializeReleaseCard ===
+    "function"
+  ) {
+
+    initializeReleaseCard();
+
+  }
+
+}
+
+
+/* ============================================================
+   SIDEBAR
+   ============================================================ */
+
+function toggleSidebar() {
+
+  const sidebar =
+    document.getElementById(
+      "sidebar"
+    );
+
+
+  if (!sidebar) {
+
+    return;
+
+  }
+
+
+  AppState.sidebarOpen =
+    !AppState.sidebarOpen;
+
+
+  sidebar.classList.toggle(
+    "mobile-open",
+    AppState.sidebarOpen
+  );
+
+}
+
+
+/* ============================================================
+   CLOSE SIDEBAR
+   ============================================================ */
+
+function closeSidebar() {
+
+  const sidebar =
+    document.getElementById(
+      "sidebar"
+    );
+
+
+  if (!sidebar) {
+
+    return;
+
+  }
+
+
+  AppState.sidebarOpen =
+    false;
+
+
+  sidebar.classList.remove(
+    "mobile-open"
+  );
+
+}
+
+
+/* ============================================================
+   HIDE LOADING SCREEN
+   ============================================================ */
+
+function hideLoadingScreen() {
+
+  const loading =
+    document.getElementById(
+      "loadingScreen"
+    );
+
+
+  if (!loading) {
+
+    return;
+
+  }
+
+
+  loading.style.opacity =
+    "0";
+
+  loading.style.transition =
+    "opacity 0.25s ease";
+
+
+  setTimeout(
+    function () {
+
+      loading.style.display =
+        "none";
+
+    },
+    250
+  );
+
+}
+
+
+/* ============================================================
+   WINDOW RESIZE
+   ============================================================ */
+
+window.addEventListener(
+  "resize",
+  function () {
+
+    if (
+      window.innerWidth > 1000
+    ) {
+
+      closeSidebar();
+
+    }
+
+  }
+);
+
+
+/* ============================================================
+   ESCAPE KEY
+   ============================================================ */
+
+document.addEventListener(
+  "keydown",
+  function (event) {
+
+    if (
+      event.key === "Escape"
+    ) {
+
+      closeSidebar();
+
+    }
+
+  }
+);
+
+
+/* ============================================================
+   REQUEST MODULE
+   ============================================================ */
+
+function initializeRequestModule() {
+
+  if (
+    RequestState.initialized
+  ) {
+
+    return;
+
+  }
+
+
+  RequestState.initialized =
+    true;
+
+
+  generateRequestId();
+
+  setRequestPreparedDate();
+
+  addTicket();
+
+}
+
+
+/* ============================================================
+   GENERATE REQUEST ID
+   ============================================================ */
+
+function generateRequestId() {
+
+  const now =
+    new Date();
+
+
+  const year =
+    now.getFullYear();
+
+
+  const month =
+    String(
+      now.getMonth() + 1
+    ).padStart(
+      2,
+      "0"
+    );
+
+
+  const day =
+    String(
+      now.getDate()
+    ).padStart(
+      2,
+      "0"
+    );
+
+
+  const time =
+    String(
+      now.getHours()
+    ).padStart(
+      2,
+      "0"
+    ) +
+
+    String(
+      now.getMinutes()
+    ).padStart(
+      2,
+      "0"
+    ) +
+
+    String(
+      now.getSeconds()
+    ).padStart(
+      2,
+      "0"
+    );
+
+
+  RequestState.requestId =
+    "MSE-" +
+    year +
+    month +
+    day +
+    "-" +
+    time;
+
+
+  const field =
+    document.getElementById(
+      "requestId"
+    );
+
+
+  if (field) {
+
+    field.value =
+      RequestState.requestId;
+
+  }
+
+}
+
+
+/* ============================================================
+   PREPARED DATE
+   ============================================================ */
+
+function setRequestPreparedDate() {
+
+  const now =
+    new Date();
+
+
+  const formatted =
+    now.toLocaleDateString(
+      "en-PH",
+      {
+
+        year:
+          "numeric",
+
+        month:
+          "2-digit",
+
+        day:
+          "2-digit"
+
+      }
+    );
+
+
+  RequestState.preparedDate =
+    formatted;
+
+
+  const field =
+    document.getElementById(
+      "requestPreparedDate"
+    );
+
+
+  if (field) {
+
+    field.value =
+      formatted;
+
+  }
+
+}
+
+
+/* ============================================================
+   ADD TICKET
+   ============================================================ */
+
+function addTicket() {
+
+  RequestState.tickets.push({
+
+    ticketId:
+      "",
+
+    dor:
+      "",
+
+    ticketSeries:
+      "",
+
+    transactions:
+      []
+
+  });
+
+
+  renderTickets();
+
+}
+
+
+/* ============================================================
+   REMOVE TICKET
+   ============================================================ */
+
+function removeTicket(
+  index
+) {
+
+  if (
+    RequestState.tickets.length <= 1
+  ) {
+
+    showRequestMessage(
+      "At least one ticket is required.",
+      "error"
+    );
+
+    return;
+
+  }
+
+
+  RequestState.tickets.splice(
+    index,
+    1
+  );
+
+
+  renderTickets();
+
+}
+
+
+/* ============================================================
+   RENDER TICKETS
+   ============================================================ */
+
+function renderTickets() {
+
+  const container =
+    document.getElementById(
+      "ticketContainer"
+    );
+
+
+  if (!container) {
+
+    return;
+
+  }
+
+
+  container.innerHTML =
+    "";
+
+
+  RequestState.tickets.forEach(
+    function (
+      ticket,
+      index
+    ) {
+
+      container.insertAdjacentHTML(
+        "beforeend",
+        buildTicketHTML(
+          ticket,
+          index
+        )
+      );
+
+    }
+  );
+
+
+  RequestState.tickets.forEach(
+    function (
+      ticket,
+      index
+    ) {
+
+      const ticketInput =
+        document.getElementById(
+          "ticketId-" + index
+        );
+
+
+      if (ticketInput) {
+
+        ticketInput.addEventListener(
+          "input",
+          function () {
+
+            handleTicketIdInput(
+              index,
+              this.value
+            );
+
+          }
+        );
+
+      }
+
+    }
+  );
+
+}
+
+
+/* ============================================================
+   BUILD TICKET HTML
+   ============================================================ */
+
+function buildTicketHTML(
+  ticket,
+  index
+) {
+
+  const ticketNumber =
+    index + 1;
+
+
+  const canRemove =
+    RequestState.tickets.length > 1;
+
+
+  return `
+
+    <div
+      class="ticket-card"
+      data-ticket-index="${index}"
+    >
+
+      <div class="ticket-card-header">
+
+        <div class="ticket-number">
+
+          <div class="ticket-number-badge">
+            ${ticketNumber}
+          </div>
+
+          <div>
+
+            <div class="ticket-title">
+              Ticket #${ticketNumber}
+            </div>
+
+            <div class="ticket-subtitle">
+              Ticket-specific request information
+            </div>
+
+          </div>
+
+        </div>
+
+
+        ${
+          canRemove
+          ?
+          `
+            <button
+              type="button"
+              class="remove-ticket-button"
+              onclick="removeTicket(${index})"
+            >
+              Remove Ticket
+            </button>
+          `
+          :
+          ""
+        }
+
+      </div>
+
+
+      <div class="ticket-card-body">
+
+        <!-- ==================================================
+             TICKET INFORMATION
+             ================================================== -->
+
+        <div class="ticket-grid">
+
+
+          <!-- TICKET ID -->
+
+          <div class="ticket-field">
+
+            <label>
+              Ticket ID
+              <span class="required">*</span>
+            </label>
+
+            <input
+              id="ticketId-${index}"
+              type="text"
+              inputmode="numeric"
+              maxlength="10"
+              autocomplete="off"
+              placeholder="Example: 2604040056"
+              value="${escapeHTML(ticket.ticketId)}"
+              class="${
+                ticket.ticketId
+                ?
+                (
+                  isValidTicketId(
+                    ticket.ticketId
+                  )
+                  ?
+                  "input-valid"
+                  :
+                  "input-invalid"
+                )
+                :
+                ""
+              }"
+            >
+
+            <div
+              id="ticketMessage-${index}"
+              class="
+                ticket-message
+                ${
+                  ticket.ticketId
+                  ?
+                  (
+                    isValidTicketId(
+                      ticket.ticketId
+                    )
+                    ?
+                    "valid"
+                    :
+                    "invalid"
+                  )
+                  :
+                  ""
+                }
+              "
+            >
+
+              ${
+                ticket.ticketId
+                ?
+                getTicketValidationMessage(
+                  ticket.ticketId
+                )
+                :
+                "Enter the 10-digit Ticket ID."
+              }
+
+            </div>
+
+          </div>
+
+
+          <!-- DOR -->
+
+          <div class="ticket-field">
+
+            <label>
+              DOR
+            </label>
+
+            <div class="dor-wrapper">
+
+              <input
+                id="dor-${index}"
+                type="text"
+                readonly
+                placeholder="Automatically generated"
+                value="${escapeHTML(ticket.dor)}"
+              >
+
+              <span class="dor-lock">
+                AUTO
+              </span>
+
+            </div>
+
+          </div>
+
+
+          <!-- TICKET SERIES -->
+
+          <div class="ticket-field">
+
+            <label>
+              Ticket Series
+            </label>
+
+            <div class="dor-wrapper">
+
+              <input
+                id="ticketSeries-${index}"
+                type="text"
+                readonly
+                placeholder="Automatically generated"
+                value="${escapeHTML(ticket.ticketSeries)}"
+              >
+
+              <span class="dor-lock">
+                AUTO
+              </span>
+
+            </div>
+
+          </div>
+
+
+        </div>
+
+
+        <!-- ==================================================
+             TRANSACTIONS
+             ================================================== -->
+
+        <div class="transaction-section">
+
+          <div class="transaction-header">
+
+            <div>
+
+              <div class="transaction-title">
+                Transactions
+              </div>
+
+              <div class="transaction-subtitle">
+                Individual transaction details under Ticket #${ticketNumber}
+              </div>
+
+            </div>
+
+
+            <button
+              type="button"
+              class="add-transaction-button"
+              onclick="addTransaction(${index})"
+            >
+              ＋ Add Transaction
+            </button>
+
+          </div>
+
+
+          <div
+            id="transactionContainer-${index}"
+          >
+
+            ${
+              ticket.transactions.length === 0
+              ?
+              `
+                <div class="transaction-empty">
+
+                  <strong>
+                    No transactions added
+                  </strong>
+
+                  <br>
+
+                  Add the individual sales transactions
+                  belonging to this Ticket ID.
+
+                </div>
+              `
+              :
+              buildTransactionRows(
+                ticket,
+                index
+              )
+            }
+
+          </div>
+
+        </div>
+
+
+      </div>
+
+    </div>
+
+  `;
+
+}
+
+
+/* ============================================================
+   BUILD TRANSACTION ROWS
+   ============================================================ */
+
+function buildTransactionRows(
+  ticket,
+  ticketIndex
+) {
+
+  return `
+
+    <div
+      style="
+        overflow-x:auto;
+        border:1px solid var(--border);
+        border-radius:9px;
+        background:#ffffff;
+      "
+    >
+
+      <table
+        style="
+          width:100%;
+          min-width:1450px;
+          border-collapse:collapse;
+          font-size:11px;
+        "
+      >
+
+        <thead>
+
+          <tr
+            style="
+              background:#f7f9fc;
+              border-bottom:1px solid var(--border);
+            "
+          >
+
+            <th style="
+              padding:11px;
+              text-align:left;
+              white-space:nowrap;
+            ">
+              #
+            </th>
+
+
+            <th style="
+              padding:11px;
+              text-align:left;
+              white-space:nowrap;
+            ">
+              Store
+            </th>
+
+
+            <th style="
+              padding:11px;
+              text-align:left;
+              white-space:nowrap;
+            ">
+              Name
+            </th>
+
+
+            <th style="
+              padding:11px;
+              text-align:left;
+              white-space:nowrap;
+            ">
+              Card Number
+            </th>
+
+
+            <th style="
+              padding:11px;
+              text-align:left;
+              white-space:nowrap;
+            ">
+              DOT
+            </th>
+
+
+            <th style="
+              padding:11px;
+              text-align:left;
+              white-space:nowrap;
+            ">
+              Store Code
+            </th>
+
+
+            <th style="
+              padding:11px;
+              text-align:left;
+              white-space:nowrap;
+            ">
+              Reg. No.
+            </th>
+
+
+            <th style="
+              padding:11px;
+              text-align:left;
+              white-space:nowrap;
+            ">
+              Trans. No.
+            </th>
+
+
+            <th style="
+              padding:11px;
+              text-align:left;
+              white-space:nowrap;
+            ">
+              Amount
+            </th>
+
+
+            <th style="
+              padding:11px;
+              text-align:left;
+              white-space:nowrap;
+            ">
+              Issue / Concern
+            </th>
+
+
+            <th style="
+              padding:11px;
+              text-align:left;
+              white-space:nowrap;
+            ">
+              Remarks
+            </th>
+
+
+            <th style="
+              padding:11px;
+              text-align:left;
+              white-space:nowrap;
+            ">
+              Config No.
+            </th>
+
+
+            <th style="
+              padding:11px;
+              text-align:left;
+              white-space:nowrap;
+            ">
+              Remove
+            </th>
+
+          </tr>
+
+        </thead>
+
+
+        <tbody>
+
+          ${
+            ticket.transactions
+              .map(
+                function (
+                  transaction,
+                  transactionIndex
+                ) {
+
+                  return `
+
+                    <tr
+                      style="
+                        border-bottom:1px solid var(--border);
+                        vertical-align:top;
+                      "
+                    >
+
+
+                      <!-- NUMBER -->
+
+                      <td
+                        style="
+                          padding:9px 11px;
+                          font-weight:700;
+                        "
+                      >
+                        ${transactionIndex + 1}
+                      </td>
+
+
+                      <!-- STORE -->
+
+                      <td
+                        style="
+                          padding:9px 11px;
+                        "
+                      >
+
+                        <input
+                          type="text"
+                          value="${escapeHTML(
+                            transaction.store || ""
+                          )}"
+                          placeholder="LC SMR"
+                          oninput="
+                            updateTransactionField(
+                              ${ticketIndex},
+                              ${transactionIndex},
+                              'store',
+                              this.value
+                            )
+                          "
+                          style="
+                            width:130px;
+                            height:36px;
+                            border:1px solid var(--border);
+                            border-radius:7px;
+                            padding:0 10px;
+                            font-family:inherit;
+                            font-size:11px;
+                            outline:none;
+                          "
+                        >
+
+                      </td>
+
+
+                      <!-- NAME -->
+
+                      <td
+                        style="
+                          padding:9px 11px;
+                        "
+                      >
+
+                        <input
+                          type="text"
+                          value="${escapeHTML(
+                            transaction.name || ""
+                          )}"
+                          placeholder="Name"
+                          oninput="
+                            updateTransactionField(
+                              ${ticketIndex},
+                              ${transactionIndex},
+                              'name',
+                              this.value
+                            )
+                          "
+                          onblur="
+                            normalizeTransactionText(
+                              ${ticketIndex},
+                              ${transactionIndex},
+                              'name',
+                              this
+                            )
+                          "
+                          style="
+                            width:150px;
+                            height:36px;
+                            border:1px solid var(--border);
+                            border-radius:7px;
+                            padding:0 10px;
+                            font-family:inherit;
+                            font-size:11px;
+                            outline:none;
+                          "
+                        >
+
+                      </td>
+
+
+                      <!-- CARD NUMBER -->
+
+                      <td
+                        style="
+                          padding:9px 11px;
+                        "
+                      >
+
+                        <input
+                          type="text"
+                          value="${escapeHTML(
+                            transaction.cardNumber || ""
+                          )}"
+                          placeholder="Card Number"
+                          inputmode="numeric"
+                          oninput="
+                            updateTransactionCard(
+                              ${ticketIndex},
+                              ${transactionIndex},
+                              this.value
+                            )
+                          "
+                          onblur="
+                            normalizeTransactionCard(
+                              ${ticketIndex},
+                              ${transactionIndex},
+                              this
+                            )
+                          "
+                          style="
+                            width:190px;
+                            min-width:190px;
+                            height:36px;
+                            border:1px solid var(--border);
+                            border-radius:7px;
+                            padding:0 10px;
+                            font-family:inherit;
+                            font-size:11px;
+                            outline:none;
+                          "
+                        >
+
+                      </td>
+
+
+                      <!-- DOT -->
+
+                      <td
+                        style="
+                          padding:9px 11px;
+                        "
+                      >
+
+                        <input
+                          type="date"
+                          value="${escapeHTML(
+                            transaction.dot || ""
+                          )}"
+                          onchange="
+                            updateTransactionField(
+                              ${ticketIndex},
+                              ${transactionIndex},
+                              'dot',
+                              this.value
+                            )
+                          "
+                          style="
+                            width:145px;
+                            height:36px;
+                            border:1px solid var(--border);
+                            border-radius:7px;
+                            padding:0 8px;
+                            font-family:inherit;
+                            font-size:11px;
+                            outline:none;
+                          "
+                        >
+
+                      </td>
+
+
+                      <!-- STORE CODE -->
+
+                      <td
+                        style="
+                          padding:9px 11px;
+                        "
+                      >
+
+                        <input
+                          type="text"
+                          value="${escapeHTML(
+                            transaction.storeCode || ""
+                          )}"
+                          placeholder="340"
+                          oninput="
+                            updateTransactionField(
+                              ${ticketIndex},
+                              ${transactionIndex},
+                              'storeCode',
+                              this.value
+                            )
+                          "
+                          style="
+                            width:100px;
+                            height:36px;
+                            border:1px solid var(--border);
+                            border-radius:7px;
+                            padding:0 10px;
+                            font-family:inherit;
+                            font-size:11px;
+                            outline:none;
+                          "
+                        >
+
+                      </td>
+
+
+                      <!-- REGISTRATION NUMBER -->
+
+                      <td
+                        style="
+                          padding:9px 11px;
+                        "
+                      >
+
+                        <input
+                          type="text"
+                          value="${escapeHTML(
+                            transaction.registrationNo || ""
+                          )}"
+                          placeholder="14"
+                          inputmode="numeric"
+                          oninput="
+                            updateTransactionField(
+                              ${ticketIndex},
+                              ${transactionIndex},
+                              'registrationNo',
+                              this.value
+                            )
+                          "
+                          style="
+                            width:90px;
+                            height:36px;
+                            border:1px solid var(--border);
+                            border-radius:7px;
+                            padding:0 10px;
+                            font-family:inherit;
+                            font-size:11px;
+                            outline:none;
+                          "
+                        >
+
+                      </td>
+
+
+                      <!-- TRANSACTION NUMBER -->
+
+                      <td
+                        style="
+                          padding:9px 11px;
+                        "
+                      >
+
+                        <input
+                          type="text"
+                          value="${escapeHTML(
+                            transaction.transactionNo || ""
+                          )}"
+                          placeholder="72"
+                          inputmode="numeric"
+                          oninput="
+                            updateTransactionField(
+                              ${ticketIndex},
+                              ${transactionIndex},
+                              'transactionNo',
+                              this.value
+                            )
+                          "
+                          style="
+                            width:100px;
+                            height:36px;
+                            border:1px solid var(--border);
+                            border-radius:7px;
+                            padding:0 10px;
+                            font-family:inherit;
+                            font-size:11px;
+                            outline:none;
+                          "
+                        >
+
+                      </td>
+
+
+                      <!-- AMOUNT -->
+
+                      <td
+                        style="
+                          padding:9px 11px;
+                        "
+                      >
+
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value="${escapeHTML(
+                            transaction.amount || ""
+                          )}"
+                          placeholder="0.00"
+                          oninput="
+                            updateTransactionField(
+                              ${ticketIndex},
+                              ${transactionIndex},
+                              'amount',
+                              this.value
+                            )
+                          "
+                          style="
+                            width:120px;
+                            height:36px;
+                            border:1px solid var(--border);
+                            border-radius:7px;
+                            padding:0 10px;
+                            font-family:inherit;
+                            font-size:11px;
+                            outline:none;
+                          "
+                        >
+
+                      </td>
+
+
+                      <!-- ISSUE / CONCERN -->
+
+                      <td
+                        style="
+                          padding:9px 11px;
+                        "
+                      >
+
+                        <textarea
+                          placeholder="Enter issue / concern"
+                          oninput="
+                            updateTransactionField(
+                              ${ticketIndex},
+                              ${transactionIndex},
+                              'issue',
+                              this.value
+                            );
+                            autoGenerateTransactionRemarks(
+                              ${ticketIndex},
+                              ${transactionIndex}
+                            );
+                          "
+                          onblur="
+                            normalizeTransactionIssue(
+                              ${ticketIndex},
+                              ${transactionIndex},
+                              this
+                            );
+                          "
+                          style="
+                            width:250px;
+                            min-width:250px;
+                            height:70px;
+                            resize:vertical;
+                            border:1px solid var(--border);
+                            border-radius:7px;
+                            padding:8px 10px;
+                            font-family:inherit;
+                            font-size:11px;
+                            line-height:1.4;
+                            outline:none;
+                          "
+                        >${escapeHTML(
+                          transaction.issue || ""
+                        )}</textarea>
+
+                        <div
+                          style="
+                            margin-top:4px;
+                            font-size:9px;
+                            color:#7a8795;
+                          "
+                        >
+                          Special characters will be removed
+                          and sentence case applied.
+                        </div>
+
+                      </td>
+
+
+                      <!-- REMARKS -->
+
+                      <td
+                        style="
+                          padding:9px 11px;
+                        "
+                      >
+
+                        <textarea
+                          id="remarks-${ticketIndex}-${transactionIndex}"
+                          readonly
+                          placeholder="Automatically generated"
+                          style="
+                            width:270px;
+                            min-width:270px;
+                            height:70px;
+                            resize:none;
+                            border:1px solid var(--border);
+                            border-radius:7px;
+                            padding:8px 10px;
+                            font-family:inherit;
+                            font-size:11px;
+                            line-height:1.4;
+                            outline:none;
+                            background:#f7f9fc;
+                            color:#526273;
+                          "
+                        >${escapeHTML(
+                          transaction.remarks || ""
+                        )}</textarea>
+
+                        <div
+                          style="
+                            margin-top:4px;
+                            font-size:9px;
+                            color:#7a8795;
+                          "
+                        >
+                          Auto: Ticket ID + Issue / Concern
+                        </div>
+
+                      </td>
+
+
+                      <!-- CONFIG NUMBER -->
+
+                      <td
+                        style="
+                          padding:9px 11px;
+                        "
+                      >
+
+                        <input
+                          id="configNo-${ticketIndex}-${transactionIndex}"
+                          type="text"
+                          value="${escapeHTML(
+                            transaction.configNo || ""
+                          )}"
+                          readonly
+                          placeholder="Auto"
+                          style="
+                            width:210px;
+                            min-width:210px;
+                            height:36px;
+                            border:1px solid var(--border);
+                            border-radius:7px;
+                            padding:0 10px;
+                            font-family:inherit;
+                            font-size:11px;
+                            outline:none;
+                            background:#f7f9fc;
+                            color:#526273;
+                          "
+                        >
+
+                      </td>
+
+
+                      <!-- REMOVE -->
+
+                      <td
+                        style="
+                          padding:9px 11px;
+                        "
+                      >
+
+                        <button
+                          type="button"
+                          onclick="
+                            removeTransaction(
+                              ${ticketIndex},
+                              ${transactionIndex}
+                            )
+                          "
+                          style="
+                            border:0;
+                            background:#fff0f0;
+                            color:#a03a3a;
+                            border-radius:6px;
+                            padding:7px 9px;
+                            cursor:pointer;
+                            font-size:10px;
+                            font-weight:700;
+                          "
+                        >
+                          Remove
+                        </button>
+
+                      </td>
+
+                    </tr>
+
+                  `;
+
+                }
+              )
+              .join("")
+          }
+
+        </tbody>
+
+      </table>
+
+    </div>
+
+
+    <div
+      style="
+        margin-top:10px;
+        padding:10px 12px;
+        background:#f7f9fc;
+        border:1px solid var(--border);
+        border-radius:8px;
+        font-size:10px;
+        line-height:1.6;
+        color:#526273;
+      "
+    >
+
+      <strong>
+        Card Number Handling:
+      </strong>
+
+      RPC 5000 — maintain the validated 16-digit card number.
+
+      &nbsp; | &nbsp;
+
+      BPC 7000 — maintain the complete 16-digit card number.
+
+      &nbsp; | &nbsp;
+
+      BPC 8000 — retain only the final 8 digits.
+
+      <br>
+
+      <strong>
+        Issue / Concern:
+      </strong>
+
+      Each transaction may have its own issue or concern.
+
+      <br>
+
+      <strong>
+        Remarks:
+      </strong>
+
+      Automatically generated from
+      Ticket ID + normalized Issue / Concern.
+
+      <br>
+
+      <strong>
+        Config No.:
+      </strong>
+
+      Automatically derived from the normalized card number.
+
+    </div>
+
+  `;
+
+}
+
+
+/* ============================================================
+   UPDATE TRANSACTION FIELD
+   ============================================================ */
+
+function updateTransactionField(
+  ticketIndex,
+  transactionIndex,
+  field,
+  value
+) {
+
+  const ticket =
+    RequestState.tickets[
+      ticketIndex
+    ];
+
+
+  if (!ticket) {
+
+    return;
+
+  }
+
+
+  const transaction =
+    ticket.transactions[
+      transactionIndex
+    ];
+
+
+  if (!transaction) {
+
+    return;
+
+  }
+
+
+  transaction[field] =
+    value;
+
+
+  /*
+   * Issue / Concern immediately updates Remarks.
+   */
+
+  if (
+    field === "issue"
+  ) {
+
+    transaction.remarks =
+      generateTransactionRemarks(
+        ticket,
+        transaction
+      );
+
+  }
+
+
+  /*
+   * Card Number immediately updates Config No.
+   */
+
+  if (
+    field === "cardNumber"
+  ) {
+
+    transaction.configNo =
+      generateConfigNumber(
+        transaction.cardNumber
+      );
+
+  }
+
+}
+
+
+/* ============================================================
+   NORMALIZE TRANSACTION TEXT
+   ============================================================ */
+
+function normalizeTransactionText(
+  ticketIndex,
+  transactionIndex,
+  field,
+  input
+) {
+
+  const ticket =
+    RequestState.tickets[
+      ticketIndex
+    ];
+
+
+  if (!ticket) {
+
+    return;
+
+  }
+
+
+  const transaction =
+    ticket.transactions[
+      transactionIndex
+    ];
+
+
+  if (!transaction) {
+
+    return;
+
+  }
+
+
+  const normalized =
+    normalizeSentence(
+      input
+      ?
+      input.value
+      :
+      transaction[field]
+    );
+
+
+  transaction[field] =
+    normalized;
+
+
+  if (input) {
+
+    input.value =
+      normalized;
+
+  }
+
+}
+
+
+/* ============================================================
+   NORMALIZE TRANSACTION ISSUE
+   ============================================================ */
+
+function normalizeTransactionIssue(
+  ticketIndex,
+  transactionIndex,
+  input
+) {
+
+  const ticket =
+    RequestState.tickets[
+      ticketIndex
+    ];
+
+
+  if (!ticket) {
+
+    return;
+
+  }
+
+
+  const transaction =
+    ticket.transactions[
+      transactionIndex
+    ];
+
+
+  if (!transaction) {
+
+    return;
+
+  }
+
+
+  const normalized =
+    normalizeSentence(
+      input
+      ?
+      input.value
+      :
+      transaction.issue
+    );
+
+
+  transaction.issue =
+    normalized;
+
+
+  if (input) {
+
+    input.value =
+      normalized;
+
+  }
+
+
+  transaction.remarks =
+    generateTransactionRemarks(
+      ticket,
+      transaction
+    );
+
+
+  const remarks =
+    document.getElementById(
+      "remarks-" +
+      ticketIndex +
+      "-" +
+      transactionIndex
+    );
+
+
+  if (remarks) {
+
+    remarks.value =
+      transaction.remarks;
+
+  }
+
+}
+
+
+/* ============================================================
+   AUTO GENERATE TRANSACTION REMARKS
+   ============================================================ */
+
+function autoGenerateTransactionRemarks(
+  ticketIndex,
+  transactionIndex
+) {
+
+  const ticket =
+    RequestState.tickets[
+      ticketIndex
+    ];
+
+
+  if (!ticket) {
+
+    return;
+
+  }
+
+
+  const transaction =
+    ticket.transactions[
+      transactionIndex
+    ];
+
+
+  if (!transaction) {
+
+    return;
+
+  }
+
+
+  transaction.remarks =
+    generateTransactionRemarks(
+      ticket,
+      transaction
+    );
+
+
+  const remarks =
+    document.getElementById(
+      "remarks-" +
+      ticketIndex +
+      "-" +
+      transactionIndex
+    );
+
+
+  if (remarks) {
+
+    remarks.value =
+      transaction.remarks;
+
+  }
+
+}
+
+
+/* ============================================================
+   GENERATE TRANSACTION REMARKS
+   ============================================================ */
+
+function generateTransactionRemarks(
+  ticket,
+  transaction
+) {
+
+  if (!ticket) {
+
+    return "";
+
+  }
+
+
+  const ticketId =
+    String(
+      ticket.ticketId || ""
+    ).trim();
+
+
+  const normalizedIssue =
+    normalizeSentence(
+      transaction
+      ?
+      transaction.issue
+      :
+      ""
+    );
+
+
+  if (
+    !ticketId &&
+    !normalizedIssue
+  ) {
+
+    return "";
+
+  }
+
+
+  if (
+    ticketId &&
+    normalizedIssue
+  ) {
+
+    return (
+      ticketId +
+      " " +
+      normalizedIssue
+    );
+
+  }
+
+
+  if (ticketId) {
+
+    return ticketId;
+
+  }
+
+
+  return normalizedIssue;
+
+}
+
+
+/* ============================================================
+   TICKET ID INPUT
+   ============================================================ */
+
+function handleTicketIdInput(
+  index,
+  value
+) {
+
+  if (
+    !RequestState.tickets[index]
+  ) {
+
+    return;
+
+  }
+
+
+  const cleanValue =
+    String(value || "")
+      .replace(
+        /\D/g,
+        ""
+      )
+      .slice(
+        0,
+        10
+      );
+
+
+  const input =
+    document.getElementById(
+      "ticketId-" + index
+    );
+
+
+  if (input) {
+
+    input.value =
+      cleanValue;
+
+  }
+
+
+  RequestState.tickets[index].ticketId =
+    cleanValue;
+
+
+  if (
+    isValidTicketId(
+      cleanValue
+    )
+  ) {
+
+    RequestState.tickets[index].dor =
+      extractDORFromTicketId(
+        cleanValue
+      );
+
+
+    RequestState.tickets[index].ticketSeries =
+      extractTicketSeries(
+        cleanValue
+      );
+
+  } else {
+
+    RequestState.tickets[index].dor =
+      "";
+
+    RequestState.tickets[index].ticketSeries =
+      "";
+
+  }
+
+
+  /*
+   * Update all existing transaction remarks
+   * because Remarks depend on Ticket ID.
+   */
+
+  const ticket =
+    RequestState.tickets[index];
+
+
+  ticket.transactions.forEach(
+    function (transaction, transactionIndex) {
+
+      transaction.remarks =
+        generateTransactionRemarks(
+          ticket,
+          transaction
+        );
+
+
+      const remarks =
+        document.getElementById(
+          "remarks-" +
+          index +
+          "-" +
+          transactionIndex
+        );
+
+
+      if (remarks) {
+
+        remarks.value =
+          transaction.remarks;
+
+      }
+
+    }
+  );
+
+
+  updateTicketValidationUI(
+    index
+  );
+
+}
+
+
+/* ============================================================
+   VALIDATE TICKET ID
+   ============================================================ */
+
+function isValidTicketId(
+  ticketId
+) {
+
+  const value =
+    String(
+      ticketId || ""
+    );
+
+
+  if (
+    !/^\d{10}$/.test(
+      value
+    )
+  ) {
+
+    return false;
+
+  }
+
+
+  const year =
+    Number(
+      value.substring(
+        0,
+        2
+      )
+    );
+
+
+  const month =
+    Number(
+      value.substring(
+        2,
+        4
+      )
+    );
+
+
+  const day =
+    Number(
+      value.substring(
+        4,
+        6
+      )
+    );
+
+
+  if (
+    month < 1 ||
+    month > 12
+  ) {
+
+    return false;
+
+  }
+
+
+  if (
+    day < 1 ||
+    day > 31
+  ) {
+
+    return false;
+
+  }
+
+
+  const fullYear =
+    2000 +
+    year;
+
+
+  const testDate =
+    new Date(
+      fullYear,
+      month - 1,
+      day
+    );
+
+
+  return (
+
+    testDate.getFullYear() ===
+      fullYear &&
+
+    testDate.getMonth() ===
+      month - 1 &&
+
+    testDate.getDate() ===
+      day
+
+  );
+
+}
+
+
+/* ============================================================
+   EXTRACT DOR
+   ============================================================ */
+
+function extractDORFromTicketId(
+  ticketId
+) {
+
+  const value =
+    String(
+      ticketId || ""
+    );
+
+
+  if (
+    !isValidTicketId(
+      value
+    )
+  ) {
+
+    return "";
+
+  }
+
+
+  const year =
+    2000 +
+    Number(
+      value.substring(
+        0,
+        2
+      )
+    );
+
+
+  const month =
+    Number(
+      value.substring(
+        2,
+        4
+      )
+    );
+
+
+  const day =
+    Number(
+      value.substring(
+        4,
+        6
+      )
+    );
+
+
+  return (
+
+    String(month).padStart(
+      2,
+      "0"
+    ) +
+
+    "/" +
+
+    String(day).padStart(
+      2,
+      "0"
+    ) +
+
+    "/" +
+
+    String(year)
+
+  );
+
+}
+
+
+/* ============================================================
+   EXTRACT TICKET SERIES
+   ============================================================ */
+
+function extractTicketSeries(
+  ticketId
+) {
+
+  const value =
+    String(
+      ticketId || ""
+    );
+
+
+  if (
+    !/^\d{10}$/.test(
+      value
+    )
+  ) {
+
+    return "";
+
+  }
+
+
+  return value.substring(
+    6
+  );
+
+}
+
+
+/* ============================================================
+   TICKET VALIDATION MESSAGE
+   ============================================================ */
+
+function getTicketValidationMessage(
+  ticketId
+) {
+
+  if (!ticketId) {
+
+    return "Enter the 10-digit Ticket ID.";
+
+  }
+
+
+  if (
+    isValidTicketId(
+      ticketId
+    )
+  ) {
+
+    const dor =
+      extractDORFromTicketId(
+        ticketId
+      );
+
+
+    return (
+      "✓ Valid Ticket ID — DOR: " +
+      dor
+    );
+
+  }
+
+
+  return (
+    "✕ Invalid Ticket ID. Expected YYMMDDSeries."
+  );
+
+}
+
+
+/* ============================================================
+   UPDATE TICKET VALIDATION UI
+   ============================================================ */
+
+function updateTicketValidationUI(
+  index
+) {
+
+  const ticket =
+    RequestState.tickets[
+      index
+    ];
+
+
+  if (!ticket) {
+
+    return;
+
+  }
+
+
+  const input =
+    document.getElementById(
+      "ticketId-" + index
+    );
+
+
+  const message =
+    document.getElementById(
+      "ticketMessage-" + index
+    );
+
+
+  const dor =
+    document.getElementById(
+      "dor-" + index
+    );
+
+
+  const series =
+    document.getElementById(
+      "ticketSeries-" + index
+    );
+
+
+  if (
+    !input ||
+    !message ||
+    !dor
+  ) {
+
+    return;
+
+  }
+
+
+  input.classList.remove(
+    "input-valid",
+    "input-invalid"
+  );
+
+
+  message.classList.remove(
+    "valid",
+    "invalid"
+  );
+
+
+  if (
+    !ticket.ticketId
+  ) {
+
+    message.textContent =
+      "Enter the 10-digit Ticket ID.";
+
+
+    dor.value =
+      "";
+
+
+    if (series) {
+
+      series.value =
+        "";
+
+    }
+
+
+    return;
+
+  }
+
+
+  if (
+    isValidTicketId(
+      ticket.ticketId
+    )
+  ) {
+
+    input.classList.add(
+      "input-valid"
+    );
+
+
+    message.classList.add(
+      "valid"
+    );
+
+
+    const calculatedDOR =
+      extractDORFromTicketId(
+        ticket.ticketId
+      );
+
+
+    const calculatedSeries =
+      extractTicketSeries(
+        ticket.ticketId
+      );
+
+
+    dor.value =
+      calculatedDOR;
+
+
+    if (series) {
+
+      series.value =
+        calculatedSeries;
+
+    }
+
+
+    message.textContent =
+      "✓ Valid Ticket ID — DOR: " +
+      calculatedDOR;
+
+  } else {
+
+    input.classList.add(
+      "input-invalid"
+    );
+
+
+    message.classList.add(
+      "invalid"
+    );
+
+
+    dor.value =
+      "";
+
+
+    if (series) {
+
+      series.value =
+        "";
+
+    }
+
+
+    message.textContent =
+      getTicketValidationMessage(
+        ticket.ticketId
+      );
+
+  }
+
+}
+
+
+/* ============================================================
+   ADD TRANSACTION
+   ============================================================ */
+
+function addTransaction(
+  ticketIndex
+) {
+
+  const ticket =
+    RequestState.tickets[
+      ticketIndex
+    ];
+
+
+  if (!ticket) {
+
+    return;
+
+  }
+
+
+  ticket.transactions.push({
+
+    store:
+      "",
+
+    name:
+      "",
+
+    cardNumber:
+      "",
+
+    dot:
+      "",
+
+    storeCode:
+      "",
+
+    registrationNo:
+      "",
+
+    transactionNo:
+      "",
+
+    amount:
+      "",
+
+    issue:
+      "",
+
+    remarks:
+      "",
+
+    configNo:
+      ""
+
+  });
+
+
+  renderTickets();
+
+}
+
+
+/* ============================================================
+   UPDATE TRANSACTION CARD
+   ============================================================ */
+
+function updateTransactionCard(
+  ticketIndex,
+  transactionIndex,
+  value
+) {
+
+  const ticket =
+    RequestState.tickets[
+      ticketIndex
+    ];
+
+
+  if (!ticket) {
+
+    return;
+
+  }
+
+
+  const transaction =
+    ticket.transactions[
+      transactionIndex
+    ];
+
+
+  if (!transaction) {
+
+    return;
+
+  }
+
+
+  transaction.cardNumber =
+    String(
+      value || ""
+    );
+
+
+  transaction.configNo =
+    generateConfigNumber(
+      transaction.cardNumber
+    );
+
+
+  const configInput =
+    document.getElementById(
+      "configNo-" +
+      ticketIndex +
+      "-" +
+      transactionIndex
+    );
+
+
+  if (configInput) {
+
+    configInput.value =
+      transaction.configNo;
+
+  }
+
+}
+
+
+/* ============================================================
+   NORMALIZE TRANSACTION CARD
+   ============================================================ */
+
+function normalizeTransactionCard(
+  ticketIndex,
+  transactionIndex,
+  input
+) {
+
+  const ticket =
+    RequestState.tickets[
+      ticketIndex
+    ];
+
+
+  if (!ticket) {
+
+    return;
+
+  }
+
+
+  const transaction =
+    ticket.transactions[
+      transactionIndex
+    ];
+
+
+  if (!transaction) {
+
+    return;
+
+  }
+
+
+  const normalized =
+    normalizeCardNumber(
+      input
+      ?
+      input.value
+      :
+      transaction.cardNumber
+    );
+
+
+  transaction.cardNumber =
+    normalized;
+
+
+  transaction.configNo =
+    generateConfigNumber(
+      normalized
+    );
+
+
+  if (input) {
+
+    input.value =
+      normalized;
+
+  }
+
+
+  const configInput =
+    document.getElementById(
+      "configNo-" +
+      ticketIndex +
+      "-" +
+      transactionIndex
+    );
+
+
+  if (configInput) {
+
+    configInput.value =
+      transaction.configNo;
+
+  }
+
+}
+
+
+/* ============================================================
+   GENERATE CONFIG NUMBER
+   ============================================================ */
+
+function generateConfigNumber(
+  cardNumber
+) {
+
+  if (
+    cardNumber === null ||
+    cardNumber === undefined
+  ) {
+
+    return "";
+
+  }
+
+
+  const normalized =
+    normalizeCardNumber(
+      cardNumber
+    );
+
+
+  if (!normalized) {
+
+    return "";
+
+  }
+
+
+  /*
+   * The actual preparation shows CONFIG NO.
+   * equal to the normalized card number.
+   *
+   * For example:
+   *
+   * Card Number:
+   * 5000000009381890
+   *
+   * Config No.:
+   * 5000000009381890
+   */
+
+  return normalized;
+
+}
+
+
+/* ============================================================
+   REMOVE TRANSACTION
+   ============================================================ */
+
+function removeTransaction(
+  ticketIndex,
+  transactionIndex
+) {
+
+  const ticket =
+    RequestState.tickets[
+      ticketIndex
+    ];
+
+
+  if (!ticket) {
+
+    return;
+
+  }
+
+
+  ticket.transactions.splice(
+    transactionIndex,
+    1
+  );
+
+
+  renderTickets();
+
+}
+
+
+/* ============================================================
+   CARD NUMBER NORMALIZATION
+   ============================================================ */
+
+function normalizeCardNumber(
+  value
+) {
+
+  if (
+    value === null ||
+    value === undefined
+  ) {
+
+    return "";
+
+  }
+
+
+  let cleanVal =
+    String(value)
+      .replace(
+        /[^0-9]/g,
+        ""
+      );
+
+
+  if (
+    cleanVal === ""
+  ) {
+
+    return "";
+
+  }
+
+
+  /*
+   * ==========================================================
+   * BPC 8000
+   * ==========================================================
+   *
+   * Only the final 8 digits are retained.
+   */
+
+  if (
+    cleanVal.startsWith(
+      "8000"
+    )
+  ) {
+
+    if (
+      cleanVal.length >= 8
+    ) {
+
+      return cleanVal.slice(
+        -8
+      );
+
+    }
+
+
+    return cleanVal;
+
+  }
+
+
+  /*
+   * ==========================================================
+   * BPC 7000
+   * ==========================================================
+   */
+
+  if (
+    cleanVal.startsWith(
+      "7000"
+    )
+  ) {
+
+    return normalizeSixteenDigitCard(
+      cleanVal
+    );
+
+  }
+
+
+  /*
+   * ==========================================================
+   * RPC 5000
+   * ==========================================================
+   */
+
+  if (
+    cleanVal.startsWith(
+      "5000"
+    )
+  ) {
+
+    return normalizeSixteenDigitCard(
+      cleanVal
+    );
+
+  }
+
+
+  /*
+   * ==========================================================
+   * UNKNOWN PREFIX
+   * ==========================================================
+   */
+
+  return normalizeBaselineCard(
+    cleanVal
+  );
+
+}
+
+
+/* ============================================================
+   BASELINE CARD NORMALIZATION
+   ============================================================ */
+
+function normalizeBaselineCard(
+  cleanVal
+) {
+
+  const len =
+    cleanVal.length;
+
+
+  /*
+   * More than 16 digits:
+   *
+   * Keep first digit and final 15 digits.
+   */
+
+  if (
+    len > 16
+  ) {
+
+    return (
+
+      cleanVal.substring(
+        0,
+        1
+      ) +
+
+      cleanVal.substring(
+        len - 15
+      )
+
+    );
+
+  }
+
+
+  /*
+   * 11–15 digits:
+   *
+   * Insert zero after first digit.
+   */
+
+  if (
+    len >= 11 &&
+    len <= 15
+  ) {
+
+    return (
+
+      cleanVal.substring(
+        0,
+        1
+      ) +
+
+      "0" +
+
+      cleanVal.substring(
+        1
+      )
+
+    );
+
+  }
+
+
+  return cleanVal;
+
+}
+
+
+/* ============================================================
+   NORMALIZE TO 16 DIGITS
+   ============================================================ */
+
+function normalizeSixteenDigitCard(
+  cleanVal
+) {
+
+  const normalized =
+    normalizeBaselineCard(
+      cleanVal
+    );
+
+
+  if (
+    normalized.length === 16
+  ) {
+
+    return normalized;
+
+  }
+
+
+  if (
+    normalized.length > 16
+  ) {
+
+    return (
+
+      normalized.substring(
+        0,
+        1
+      ) +
+
+      normalized.substring(
+        normalized.length - 15
+      )
+
+    );
+
+  }
+
+
+  return normalized;
+
+}
+
+
+/* ============================================================
+   SENTENCE CASE / TEXT NORMALIZATION
+   ============================================================ */
+
+function normalizeSentence(
+  value
+) {
+
+  if (
+    value === null ||
+    value === undefined
+  ) {
+
+    return "";
+
+  }
+
+
+  let text =
+    String(value);
+
+
+  /*
+   * Remove special characters.
+   *
+   * Keep:
+   * A-Z
+   * a-z
+   * 0-9
+   * spaces
+   */
+
+  text =
+    text.replace(
+      /[^A-Za-z0-9\s]/g,
+      " "
+    );
+
+
+  /*
+   * Collapse multiple spaces.
+   */
+
+  text =
+    text.replace(
+      /\s+/g,
+      " "
+    )
+    .trim();
+
+
+  if (
+    text === ""
+  ) {
+
+    return "";
+
+  }
+
+
+  /*
+   * Proper sentence case:
+   *
+   * CYWARE POS ERROR
+   *
+   * becomes
+   *
+   * Cyware pos error
+   */
+
+  text =
+    text.toLowerCase();
+
+
+  text =
+    text.charAt(0).toUpperCase() +
+    text.slice(1);
+
+
+  return text;
+
+}
+
+
+/* ============================================================
+   RESET REQUEST
+   ============================================================ */
+
+function resetRequest() {
+
+  const confirmed =
+    window.confirm(
+      "Clear the current request and start again?"
+    );
+
+
+  if (!confirmed) {
+
+    return;
+
+  }
+
+
+  RequestState.tickets =
+    [];
+
+
+  RequestState.initialized =
+    true;
+
+
+  generateRequestId();
+
+  setRequestPreparedDate();
+
+  addTicket();
+
+}
+
+
+/* ============================================================
+   SAVE DRAFT
+   ============================================================ */
+
+function saveRequestDraft() {
+
+  if (
+    !validateRequestHeader()
+  ) {
+
+    return;
+
+  }
+
+
+  AppState.requestDraft =
+    structuredClone(
+      RequestState
+    );
+
+
+  console.log(
+    "MSE REQUEST DRAFT:",
+    AppState.requestDraft
+  );
+
+
+  showRequestMessage(
+    "Request draft prepared successfully.",
+    "success"
+  );
+
+}
+
+
+/* ============================================================
+   PREPARE SUBMISSION
+   ============================================================ */
+
+function prepareRequestForSubmission() {
+
+  if (
+    !validateRequest()
+  ) {
+
+    return;
+
+  }
+
+
+  AppState.requestDraft =
+    structuredClone(
+      RequestState
+    );
+
+
+  console.log(
+    "READY FOR VALIDATION:",
+    AppState.requestDraft
+  );
+
+
+  showRequestMessage(
+    "Request information is valid and ready for validation.",
+    "success"
+  );
+
+}
+
+
+/* ============================================================
+   VALIDATE REQUEST HEADER
+   ============================================================ */
+
+function validateRequestHeader() {
+
+  if (
+    !RequestState.tickets.length
+  ) {
+
+    showRequestMessage(
+      "At least one ticket is required.",
+      "error"
+    );
+
+
+    return false;
+
+  }
+
+
+  return true;
+
+}
+
+
+/* ============================================================
+   VALIDATE COMPLETE REQUEST
+   ============================================================ */
+
+function validateRequest() {
+
+  if (
+    !validateRequestHeader()
+  ) {
+
+    return false;
+
+  }
+
+
+  for (
+    let i = 0;
+    i < RequestState.tickets.length;
+    i++
+  ) {
+
+    const ticket =
+      RequestState.tickets[
+        i
+      ];
+
+
+    /* --------------------------------------------------------
+       TICKET ID
+       -------------------------------------------------------- */
+
+    if (
+      !isValidTicketId(
+        ticket.ticketId
+      )
+    ) {
+
+      showRequestMessage(
+        "Ticket #" +
+        (i + 1) +
+        " has an invalid Ticket ID.",
+        "error"
+      );
+
+
+      return false;
+
+    }
+
+
+    /* --------------------------------------------------------
+       TRANSACTION REQUIRED
+       -------------------------------------------------------- */
+
+    if (
+      ticket.transactions.length === 0
+    ) {
+
+      showRequestMessage(
+        "Ticket #" +
+        (i + 1) +
+        " requires at least one transaction.",
+        "error"
+      );
+
+
+      return false;
+
+    }
+
+
+    /* --------------------------------------------------------
+       TRANSACTION VALIDATION
+       -------------------------------------------------------- */
+
+    for (
+      let j = 0;
+      j < ticket.transactions.length;
+      j++
+    ) {
+
+      const transaction =
+        ticket.transactions[
+          j
+        ];
+
+
+      /*
+       * STORE
+       */
+
+      if (
+        !String(
+          transaction.store || ""
+        ).trim()
+      ) {
+
+        showRequestMessage(
+          "Ticket #" +
+          (i + 1) +
+          ", Transaction #" +
+          (j + 1) +
+          " requires a Store.",
+          "error"
+        );
+
+
+        return false;
+
+      }
+
+
+      /*
+       * CARD NUMBER
+       */
+
+      if (
+        !String(
+          transaction.cardNumber || ""
+        ).trim()
+      ) {
+
+        showRequestMessage(
+          "Ticket #" +
+          (i + 1) +
+          ", Transaction #" +
+          (j + 1) +
+          " requires a Card Number.",
+          "error"
+        );
+
+
+        return false;
+
+      }
+
+
+      /*
+       * NORMALIZE CARD BEFORE VALIDATION.
+       */
+
+      transaction.cardNumber =
+        normalizeCardNumber(
+          transaction.cardNumber
+        );
+
+
+      /*
+       * GENERATE CONFIG NO.
+       */
+
+      transaction.configNo =
+        generateConfigNumber(
+          transaction.cardNumber
+        );
+
+
+      /*
+       * NORMALIZE ISSUE.
+       */
+
+      transaction.issue =
+        normalizeSentence(
+          transaction.issue
+        );
+
+
+      /*
+       * AUTO GENERATE REMARKS.
+       */
+
+      transaction.remarks =
+        generateTransactionRemarks(
+          ticket,
+          transaction
+        );
+
+    }
+
+  }
+
+
+  return true;
+
+}
+
+
+/* ============================================================
+   GET CURRENT REQUEST DRAFT
+   ============================================================ */
+
+function getCurrentRequestDraft() {
+
+  return structuredClone(
+    RequestState
+  );
+
+}
+
+
+/* ============================================================
+   REQUEST MESSAGE
+   ============================================================ */
+
+function showRequestMessage(
+  message,
+  type
+) {
+
+  const existing =
+    document.getElementById(
+      "requestMessage"
+    );
+
+
+  if (existing) {
+
+    existing.remove();
+
+  }
+
+
+  const element =
+    document.createElement(
+      "div"
+    );
+
+
+  element.id =
+    "requestMessage";
+
+
+  const background =
+    type === "success"
+      ?
+      "#eaf8f1"
+      :
+      "#fff1f1";
+
+
+  const border =
+    type === "success"
+      ?
+      "#bde6cf"
+      :
+      "#efc3c3";
+
+
+  const color =
+    type === "success"
+      ?
+      "#1d7f4d"
+      :
+      "#a52b2b";
+
+
+  element.style.cssText = `
+
+    position:fixed;
+
+    right:25px;
+
+    bottom:25px;
+
+    max-width:420px;
+
+    background:${background};
+
+    border:1px solid ${border};
+
+    color:${color};
+
+    border-radius:10px;
+
+    padding:13px 16px;
+
+    box-shadow:
+      0 10px 30px
+      rgba(18,45,80,0.15);
+
+    font-size:11px;
+
+    font-weight:700;
+
+    line-height:1.5;
+
+    z-index:9999;
+
+  `;
+
+
+  element.textContent =
+    message;
+
+
+  document.body.appendChild(
+    element
+  );
+
+
+  setTimeout(
+    function () {
+
+      if (
+        element &&
+        element.parentNode
+      ) {
+
+        element.remove();
+
+      }
+
+    },
+    5000
+  );
+
+}
+
+
+/* ============================================================
+   ESCAPE HTML
+   ============================================================ */
+
+function escapeHTML(
+  value
+) {
+
+  return String(
+    value == null
+      ?
+      ""
+      :
+      value
+  )
+
+  .replace(
+    /&/g,
+    "&amp;"
+  )
+
+  .replace(
+    /</g,
+    "&lt;"
+  )
+
+  .replace(
+    />/g,
+    "&gt;"
+  )
+
+  .replace(
+    /"/g,
+    "&quot;"
+  )
+
+  .replace(
+    /'/g,
+    "&#039;"
+  );
+
+}
+
+
+/* ============================================================
+   DEBUG
+   ============================================================ */
+
+function debugRequestState() {
+
+  console.log(
+    "CURRENT REQUEST STATE:",
+    structuredClone(
+      RequestState
+    )
+  );
+
+
+  return structuredClone(
+    RequestState
+  );
+
+}
+
+</script>
